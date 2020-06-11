@@ -187,8 +187,9 @@ class NearestNeighborDistanceMetric(object):
             
             cosineDistance = self._metric(self.samples[target], features)
             # Equation 5 second half
-            cost_matrix[i, :] = cosineDistance * (1 - self.lambdaParam)
+            cost_matrix[i, :] = cosineDistance * (1.0 - self.lambdaParam)
             
             cost_matrix[i, cosineDistance > self.matching_threshold] = gated_cost
-        
+
+        print('App.features', cost_matrix)
         return cost_matrix

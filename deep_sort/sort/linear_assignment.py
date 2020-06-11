@@ -80,7 +80,7 @@ def min_cost_matching(
     for row, col in zip(row_indices, col_indices):
         track_idx = track_indices[row]
         detection_idx = detection_indices[col]
-        if cost_matrix[row, col] >= (1e+5 - 1): # TODO: valami globális konstans kéne erre
+        if cost_matrix[row, col] >= (1e+4): # TODO: valami globális konstans kéne erre
             unmatched_tracks.append(track_idx)
             unmatched_detections.append(detection_idx)
         else:
@@ -221,4 +221,7 @@ def gate_cost_matrix(
 
         # Equation 2
         cost_matrix[row, gating_distance > gating_threshold] = gated_cost
+
+
+    print('Motion features', cost_matrix)
     return cost_matrix
