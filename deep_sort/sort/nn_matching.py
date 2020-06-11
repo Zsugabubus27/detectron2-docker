@@ -190,6 +190,4 @@ class NearestNeighborDistanceMetric(object):
             cost_matrix[i, :] = cosineDistance * (1.0 - self.lambdaParam)
             
             cost_matrix[i, cosineDistance > self.matching_threshold] = gated_cost
-
-        print('App.features', cost_matrix)
         return cost_matrix
