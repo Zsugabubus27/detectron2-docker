@@ -115,9 +115,10 @@ class Tracker:
         unconfirmed_tracks = [ i for i, t in enumerate(self.tracks) if not t.is_confirmed() ]
 
         # Associate confirmed tracks using appearance features.
+        # Max distance itt az infinity number
         matches_a, unmatched_tracks_a, unmatched_detections = \
             linear_assignment.matching_cascade(
-                gated_metric, self.metric.matching_threshold, self.max_age,
+                gated_metric, 1e+5, self.max_age,
                 self.tracks, detections, confirmed_tracks)
 
         # Associate remaining tracks together with unconfirmed tracks using IOU.
