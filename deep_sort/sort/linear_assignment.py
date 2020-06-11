@@ -53,19 +53,30 @@ def min_cost_matching(
     if len(detection_indices) == 0 or len(track_indices) == 0:
         return [], track_indices, detection_indices  # Nothing to match.
 
-    cost_matrix = distance_metric(
-        tracks, detections, track_indices, detection_indices)
+    cost_matrix = distance_metric(tracks, detections, track_indices, detection_indices)
+
+    # Equation 4
+    # Itt számolja ki hogy az egyes cellák nagysága nagyobb-e mint a max_distance, azaz a t(2)
+    # Azonban ezt csak azért teheti meg, mert a costMx-ban csak a d(2)-es metrika értékei szerepelnek
+    # Ha a d(1) metrika is szerpelne itt akkor máshol kéne ezt megtenni
+    # TODO: Ezt kiszervezni máshova
     cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
 
+    # Összepárosítja, hogy melyik trackhez (row) melyik detekció (col) tartozik
     row_indices, col_indices = linear_assignment(cost_matrix)
 
     matches, unmatched_tracks, unmatched_detections = [], [], []
+    # Nem párosított detekciók kiválogatása
     for col, detection_idx in enumerate(detection_indices):
         if col not in col_indices:
             unmatched_detections.append(detection_idx)
+    # Nem párosított trackek kiválogatása
     for row, track_idx in enumerate(track_indices):
         if row not in row_indices:
             unmatched_tracks.append(track_idx)
+    # Megnézi, hogy a párosított trackek costja nagyobb-e mint a max_distance
+    # Ha igen akkor azokat az unmatched kategóriába teszi
+    # TODO: nem a max_distance-val kéne összenézni, hanem mással, ha a d(1)-et is figyelembe vesszük
     for row, col in zip(row_indices, col_indices):
         track_idx = track_indices[row]
         detection_idx = detection_indices[col]
@@ -75,7 +86,6 @@ def min_cost_matching(
         else:
             matches.append((track_idx, detection_idx))
     return matches, unmatched_tracks, unmatched_detections
-
 
 def matching_cascade(
         distance_metric, max_distance, cascade_depth, tracks, detections,
@@ -121,6 +131,11 @@ def matching_cascade(
     if detection_indices is None:
         detection_indices = list(range(len(detections)))
 
+    # 1. Init: minden detekció unmatched, level = 0
+    # 2. Azokat a trackeket választja ki amik életkora = level
+    # 3. A detekciók és ezek a trackek között próbál párosítást találni
+    #    Ha maradnak olyan detekciók amik nem lettek párosítva akkor azokat elmenti
+    # 4. növeli a levelt és a 2.-nél folytatja
     unmatched_detections = detection_indices
     matches = []
     for level in range(cascade_depth):
@@ -180,13 +195,24 @@ def gate_cost_matrix(
         Returns the modified cost matrix.
 
     """
+    # IMPORTANT!
+    # gating_threshold : t(1) a cikkben, ennél kisebbnek kell lennie a d(1)(i,j)-nek
+    #      azaz az i.-ik track predikált állapota és a j.-ik detekció Mahalonobis távolsága
     gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
-    measurements = np.asarray(
-        [detections[i].to_xyah() for i in detection_indices])
+    
+    # Detekciók XcYcAH listáját tartalmazó tömb
+    measurements = np.asarray( [detections[i].to_xyah() for i in detection_indices] )
+
+    # Minden track-re (i) kiszámolja a d(1)(i, j), ez a gating_distance
+    # a kf.gating_distance egy len(measurements) hosszú, tehát M hosszú vektort ad vissza
+    # Ezt csak arra használja fel itt, hogy a beadott cost MX azon celláit ahol nem felel meg a gating distance a t(1) thresholdnak
+    # beállítsa a végtelenre
+    # TODO: itt kéne a d(1)-et valahogy hozzáadni a costMX-hoz
     for row, track_idx in enumerate(track_indices):
         track = tracks[track_idx]
-        gating_distance = kf.gating_distance(
-            track.mean, track.covariance, measurements, only_position)
+        # Equation 1
+        gating_distance = kf.gating_distance(track.mean, track.covariance, measurements, only_position)
+        # Equation 2
         cost_matrix[row, gating_distance > gating_threshold] = gated_cost
     return cost_matrix
