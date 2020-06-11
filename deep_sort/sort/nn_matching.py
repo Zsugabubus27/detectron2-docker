@@ -1,6 +1,7 @@
 # vim: expandtab:ts=4:sw=4
 import numpy as np
 
+INFTY_COST = 1e+5
 
 def _pdist(a, b):
     """Compute pair-wise squared distance between points in `a` and `b`.
@@ -120,7 +121,7 @@ class NearestNeighborDistanceMetric(object):
 
     """
 
-    def __init__(self, metric, matching_threshold, budget=None):
+    def __init__(self, metric, matching_threshold, lambdaParam, budget=None):
 
 
         if metric == "euclidean":
@@ -132,6 +133,7 @@ class NearestNeighborDistanceMetric(object):
                 "Invalid metric; must be either 'euclidean' or 'cosine'")
         self.matching_threshold = matching_threshold
         self.budget = budget
+        self.lambdaParam = lambdaParam
         self.samples = {}
 
     def partial_fit(self, features, targets, active_targets):
@@ -153,7 +155,7 @@ class NearestNeighborDistanceMetric(object):
                 self.samples[target] = self.samples[target][-self.budget:]
         self.samples = {k: self.samples[k] for k in active_targets}
 
-    def distance(self, features, targets):
+    def distance(self, features, targets, gated_cost=INFTY_COST):
         """Compute distance between features and targets.
 
         Parameters
@@ -182,5 +184,11 @@ class NearestNeighborDistanceMetric(object):
             # Azonban minden trackhez egy max Lk hosszú history tartozik 
             # ami leírja az elmúlt Lk frameban hogy milyen feature vectorok írták le a játékost
             # Ezek közül minden detekcióhoz visszaadja a legközelebbinek a távolságát
-            cost_matrix[i, :] = self._metric(self.samples[target], features)
+            
+            cosineDistance = self._metric(self.samples[target], features)
+            # Equation 5 second half
+            cost_matrix[i, :] = cosineDistance * (1 - self.lambdaParam)
+            
+            cost_matrix[i, cosineDistance > self.matching_threshold] = gated_cost
+        
         return cost_matrix

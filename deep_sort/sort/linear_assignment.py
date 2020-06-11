@@ -60,7 +60,7 @@ def min_cost_matching(
     # Azonban ezt csak azért teheti meg, mert a costMx-ban csak a d(2)-es metrika értékei szerepelnek
     # Ha a d(1) metrika is szerpelne itt akkor máshol kéne ezt megtenni
     # TODO: Ezt kiszervezni máshova
-    cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
+    # cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
 
     # Összepárosítja, hogy melyik trackhez (row) melyik detekció (col) tartozik
     row_indices, col_indices = linear_assignment(cost_matrix)
@@ -80,7 +80,7 @@ def min_cost_matching(
     for row, col in zip(row_indices, col_indices):
         track_idx = track_indices[row]
         detection_idx = detection_indices[col]
-        if cost_matrix[row, col] > max_distance:
+        if cost_matrix[row, col] >= (1e+5 - 1): # TODO: valami globális konstans kéne erre
             unmatched_tracks.append(track_idx)
             unmatched_detections.append(detection_idx)
         else:
@@ -159,7 +159,7 @@ def matching_cascade(
 
 
 def gate_cost_matrix(
-        kf, cost_matrix, tracks, detections, track_indices, detection_indices,
+        kf, cost_matrix, tracks, detections, track_indices, detection_indices, lambdaParam
         gated_cost=INFTY_COST, only_position=False):
     """Invalidate infeasible entries in cost matrix based on the state
     distributions obtained by Kalman filtering.
@@ -182,6 +182,8 @@ def gate_cost_matrix(
     detection_indices : List[int]
         List of detection indices that maps columns in `cost_matrix` to
         detections in `detections` (see description above).
+    lambdaParam : float
+        The ratio of the motion metric. Used in Equation 5 in the paper. 0 <= lambdaParam <= 1
     gated_cost : Optional[float]
         Entries in the cost matrix corresponding to infeasible associations are
         set this value. Defaults to a very large value.
@@ -213,6 +215,10 @@ def gate_cost_matrix(
         track = tracks[track_idx]
         # Equation 1
         gating_distance = kf.gating_distance(track.mean, track.covariance, measurements, only_position)
+        
+        # Equation 5, first half
+        cost_matrix[row, :] += gating_distance * lambdaParam
+
         # Equation 2
         cost_matrix[row, gating_distance > gating_threshold] = gated_cost
     return cost_matrix

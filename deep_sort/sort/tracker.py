@@ -37,11 +37,12 @@ class Tracker:
 
     """
 
-    def __init__(self, metric, max_iou_distance=0.7, max_age=70, n_init=3):
+    def __init__(self, metric, lambdaParam, max_iou_distance=0.7, max_age=70, n_init=3):
         self.metric = metric
         self.max_iou_distance = max_iou_distance
         self.max_age = max_age
         self.n_init = n_init
+        self.lambdaParam = lambdaParam
 
         self.kf = kalman_filter.KalmanFilter()
         self.tracks = []
@@ -106,8 +107,7 @@ class Tracker:
             cost_matrix = self.metric.distance(features, targets)
             cost_matrix = linear_assignment.gate_cost_matrix(
                 self.kf, cost_matrix, tracks, dets, track_indices,
-                detection_indices)
-
+                detection_indices, self.lambdaParam)
             return cost_matrix
 
         # Split track set into confirmed and unconfirmed tracks.
