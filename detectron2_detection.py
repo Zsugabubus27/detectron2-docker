@@ -15,11 +15,32 @@ class Detectron2:
         # TODO: ide valamit
 
         self.cfg = get_cfg()
-        self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
-        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
-        self.cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+        #self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
+        #self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
+        #self.cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
         
+        self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml")
+        self.cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x/138205316/model_final_a3ec72.pkl"
+
+
+        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.0
+        self.cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.1]
+        self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.1
+        self.cfg.MODEL.RPN.IOU_THRESHOLDS = [0.1, 0.4]
+
+        self.cfg.MODEL.FPN.FPN_ON = True
+        self.cfg.MODEL.FPN.MULTILEVEL_RPN = True
+        self.cfg.MODEL.FPN.RPN_MIN_LEVEL = 1
+        self.cfg.MODEL.FPN.RPN_MAX_LEVEL = 8
+        self.cfg.MODEL.FPN.COARSEST_STRIDE = 256
+        self.cfg.MODEL.FPN.SCALES_PER_OCTAVE = 3
+        self.cfg.MODEL.FPN.ANCHOR_SCALE = 2
+
+
+
         # Initializes the predictor object with the config file
+        # CUDA nélküli futtatáshoz
+        self.cfg.MODEL.DEVICE = "cpu"
         self.predictor = DefaultPredictor(self.cfg)
 
     def bbox(self, img):

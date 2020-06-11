@@ -20,7 +20,7 @@ class Detector(object):
 
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
-
+        # FIXME: Max dist itt nem szerepelt
         self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
 
     def __enter__(self):
@@ -52,7 +52,8 @@ class Detector(object):
             # Detect object on image
             bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
 
-            if bbox_xcycwh is not None:
+            # TODO: Kell ide null check?  
+            if bbox_xcycwh is not None: # and len(bbox_xcycwh) > 0
                 # FIXME: This is double check since all the returned boxes are person objects (in the detect funcion it is asserted)
                 # select class person
                 mask = cls_ids == 0
