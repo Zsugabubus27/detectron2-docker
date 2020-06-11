@@ -12,6 +12,8 @@ class Detectron2:
 
     def __init__(self):
         # Create config file for detectron
+        # TODO: ide valamit
+
         self.cfg = get_cfg()
         self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
         self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
