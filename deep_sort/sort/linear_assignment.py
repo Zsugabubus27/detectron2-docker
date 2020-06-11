@@ -65,6 +65,9 @@ def min_cost_matching(
     # Összepárosítja, hogy melyik trackhez (row) melyik detekció (col) tartozik
     row_indices, col_indices = linear_assignment(cost_matrix)
 
+    print('CostMx', cost_matrix)
+    print('matches', row_indices, col_indices)
+
     matches, unmatched_tracks, unmatched_detections = [], [], []
     # Nem párosított detekciók kiválogatása
     for col, detection_idx in enumerate(detection_indices):
