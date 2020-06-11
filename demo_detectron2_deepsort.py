@@ -21,7 +21,7 @@ class Detector(object):
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
         # FIXME: Max dist itt nem szerepelt
-        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0, use_cuda=use_cuda)
+        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.0, use_cuda=use_cuda)
 
     def __enter__(self):
         assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
@@ -32,7 +32,7 @@ class Detector(object):
         # FIXME: Output FPS is hardcoded to 20
         if self.args.save_path:
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 20, (self.im_width, self.im_height))
+            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 6, (self.im_width, self.im_height))
 
         assert self.vdo.isOpened()
         return self
