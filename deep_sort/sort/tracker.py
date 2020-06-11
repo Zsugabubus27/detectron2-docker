@@ -115,6 +115,7 @@ class Tracker:
         unconfirmed_tracks = [ i for i, t in enumerate(self.tracks) if not t.is_confirmed() ]
 
         # Associate confirmed tracks using appearance features.
+        # FIXME: ne legyen beégetve konstans
         # Max distance itt az infinity number
         matches_a, unmatched_tracks_a, unmatched_detections = \
             linear_assignment.matching_cascade(
