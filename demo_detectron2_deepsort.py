@@ -29,6 +29,7 @@ class Detector(object):
         self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+        # FIXME: Output FPS is hardcoded to 20
         if self.args.save_path:
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
             self.output = cv2.VideoWriter(self.args.save_path, fourcc, 20, (self.im_width, self.im_height))
@@ -41,22 +42,37 @@ class Detector(object):
             print(exc_type, exc_value, exc_traceback)
 
     def detect(self):
+        # Check wheter there is next frame
         while self.vdo.grab():
             start = time.time()
+            # Retrieve next frame
             _, im = self.vdo.retrieve()
             # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+
+            # Detect object on image
             bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
 
             if bbox_xcycwh is not None:
+                # FIXME: This is double check since all the returned boxes are person objects (in the detect funcion it is asserted)
                 # select class person
                 mask = cls_ids == 0
+                                
+                cls_conf = cls_conf[mask]
 
+                # FIXME: only the height is multiplies by 1.2, why?
+                # ANSWER: bbox dilation just in case bbox too small, delete this line if using a better pedestrian detector
                 bbox_xcycwh = bbox_xcycwh[mask]
                 bbox_xcycwh[:, 3:] *= 1.2
 
-                cls_conf = cls_conf[mask]
+
+                # Do tracking
                 outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                
+                # Draw boxes for visualization
                 if len(outputs) > 0:
+                    
+                    # Missing: bbox_tlwh
+                    
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
                     im = draw_bboxes(im, bbox_xyxy, identities)

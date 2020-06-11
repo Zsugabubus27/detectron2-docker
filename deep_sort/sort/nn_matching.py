@@ -171,7 +171,16 @@ class NearestNeighborDistanceMetric(object):
             `targets[i]` and `features[j]`.
 
         """
+        # features: N darab detekció M hosszú feature vektorja
+        # Returns: KxN-es mátrix, ahol a K a trackek száma, N a detekciók száma
+
+
         cost_matrix = np.zeros((len(targets), len(features)))
         for i, target in enumerate(targets):
+            # Itt számítjuk ki az Equation 3 szerint a d(2)(i, j)-t
+            # i-.ik track-hez - ami itt a target - megnézi az összes detekciót (features)
+            # Azonban minden trackhez egy max Lk hosszú history tartozik 
+            # ami leírja az elmúlt Lk frameban hogy milyen feature vectorok írták le a játékost
+            # Ezek közül minden detekcióhoz visszaadja a legközelebbinek a távolságát
             cost_matrix[i, :] = self._metric(self.samples[target], features)
         return cost_matrix

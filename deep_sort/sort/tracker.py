@@ -69,6 +69,10 @@ class Tracker:
             self._match(detections)
 
         # Update track set.
+        # 1. A párosított trackeket updateli
+        # 2. A nem párosított trackeket Missingnek jelöli (Deletedhez kell)
+        # 3. A nem párosított detekciókból új trackeket csinál
+        # 4. A törölt trackeket törli
         for track_idx, detection_idx in matches:
             self.tracks[track_idx].update(
                 self.kf, detections[detection_idx])
@@ -79,6 +83,10 @@ class Tracker:
         self.tracks = [t for t in self.tracks if not t.is_deleted()]
 
         # Update distance metric.
+        # 1. Készít két listát mely sorfolytonosan tartalmazza, hogy melyik feature vektor melyik trackID-hoz tartozik
+        #    Ezzel a két listával updateli majd a metric objektumot
+        # 2. A pertial_fit fv segítségével frissíti a metric objektumban tárolt memóriát a trackekről és feature vectorjukról
+        #    A legutolsó nn_budget darabot tárolja csak, és csak azokat az indexet tárolja amik még élnek.
         active_targets = [t.track_id for t in self.tracks if t.is_confirmed()]
         features, targets = [], []
         for track in self.tracks:
@@ -103,10 +111,8 @@ class Tracker:
             return cost_matrix
 
         # Split track set into confirmed and unconfirmed tracks.
-        confirmed_tracks = [
-            i for i, t in enumerate(self.tracks) if t.is_confirmed()]
-        unconfirmed_tracks = [
-            i for i, t in enumerate(self.tracks) if not t.is_confirmed()]
+        confirmed_tracks = [ i for i, t in enumerate(self.tracks) if t.is_confirmed() ]
+        unconfirmed_tracks = [ i for i, t in enumerate(self.tracks) if not t.is_confirmed() ]
 
         # Associate confirmed tracks using appearance features.
         matches_a, unmatched_tracks_a, unmatched_detections = \
@@ -115,6 +121,9 @@ class Tracker:
                 self.tracks, detections, confirmed_tracks)
 
         # Associate remaining tracks together with unconfirmed tracks using IOU.
+        # 1. az unconfirmed trackek és azon unmatched trackek kiválasztása akiknek a kora 1
+        # 2. minden többi unmatched tracket elment
+        # 3. IOU matchning végrehajtása ezeken a tracekeken és az unmatched detectionokon
         iou_track_candidates = unconfirmed_tracks + [
             k for k in unmatched_tracks_a if
             self.tracks[k].time_since_update == 1]
