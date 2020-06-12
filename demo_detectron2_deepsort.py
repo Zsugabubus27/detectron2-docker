@@ -21,7 +21,7 @@ class Detector(object):
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
         # FIXME: Max dist itt nem szerepelt
-        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.0, use_cuda=use_cuda)
+        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.5, use_cuda=use_cuda)
 
     def __enter__(self):
         assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
