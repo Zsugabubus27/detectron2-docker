@@ -81,6 +81,12 @@ class Tracker:
             self.tracks[track_idx].mark_missed()
         for detection_idx in unmatched_detections:
             self._initiate_track(detections[detection_idx])
+        
+        # Print TrackID-s
+        print('matches', [self.tracks[tid].track_id for tid, did in matches])
+        # Print TrackID-s
+        print('unmatches', [self.tracks[tid].track_id for tid in unmatched_tracks])
+
         self.tracks = [t for t in self.tracks if not t.is_deleted()]
 
         # Update distance metric.

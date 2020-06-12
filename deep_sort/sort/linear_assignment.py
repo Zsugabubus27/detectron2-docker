@@ -87,8 +87,8 @@ def min_cost_matching(
             unmatched_detections.append(detection_idx)
         else:
             matches.append((track_idx, detection_idx))
-    print('unmatched tracks', unmatched_tracks)
-    print('matched tracks', matches)
+    # print('unmatched tracks', unmatched_tracks)
+    # print('matched tracks', matches)
     return matches, unmatched_tracks, unmatched_detections
 
 def matching_cascade(
