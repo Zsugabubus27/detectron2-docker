@@ -25,7 +25,9 @@ class DeepSort(object):
             max_iou_distance : int
                 TODO
             n_init : int
-                TODO
+                Number of consecutive detections before the track is confirmed. The
+                track state is set to `Deleted` if a miss occurs within the first
+                `n_init` frames.
             lambdaParam : int
                 TODO
             max_dist : int

@@ -21,7 +21,8 @@ class Detector(object):
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
         # FIXME: Max dist itt nem szerepelt
-        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.5, use_cuda=use_cuda)
+        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.5, max_dist=0.2, min_confidence=0.3, 
+                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=70, n_init=3, nn_budget=100, use_cuda=use_cuda)
 
     def __enter__(self):
         assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
@@ -56,8 +57,7 @@ class Detector(object):
             if bbox_xcycwh is not None: # and len(bbox_xcycwh) > 0
                 # FIXME: This is double check since all the returned boxes are person objects (in the detect funcion it is asserted)
                 # select class person
-                mask = cls_ids == 0
-                                
+                mask = cls_ids == 0          
                 cls_conf = cls_conf[mask]
 
                 # FIXME: only the height is multiplies by 1.2, why?
@@ -72,7 +72,7 @@ class Detector(object):
                 # Draw boxes for visualization
                 if len(outputs) > 0:
                     
-                    # Missing: bbox_tlwh
+                    # TODO: Missing: bbox_tlwh for writing to file
                     
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
