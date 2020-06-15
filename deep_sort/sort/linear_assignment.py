@@ -82,8 +82,8 @@ def min_cost_matching(
     for row, col in zip(row_indices, col_indices):
         track_idx = track_indices[row]
         detection_idx = detection_indices[col]
-        if tracks[track_idx].track_id == 37:
-            print('TrackID 37:', cost_matrix[row, col])
+        #if tracks[track_idx].track_id == 37:
+        #    print('TrackID 37:', cost_matrix[row, col])
         if cost_matrix[row, col] >= max_distance - 1e-5:
             unmatched_tracks.append(track_idx)
             unmatched_detections.append(detection_idx)
