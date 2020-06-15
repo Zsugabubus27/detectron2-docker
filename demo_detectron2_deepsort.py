@@ -44,8 +44,12 @@ class Detector(object):
 
     def detect(self):
         # Check wheter there is next frame
+        results = []
+        idx_frame = 0
         while self.vdo.grab():
             start = time.time()
+            idx_frame += 1
+
             # Retrieve next frame
             _, im = self.vdo.retrieve()
             # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -81,10 +85,13 @@ class Detector(object):
                 # Draw boxes for visualization
                 if len(outputs) > 0:
                     
-                    # TODO: Missing: bbox_tlwh for writing to file
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
                     im = draw_bboxes(im, bbox_xyxy, identities)
+
+                    # Write to file
+                    bbox_tlwh = [self.deepsort._xyxy_to_tlwh(bb) for bb in bbox_xyxy]
+                    results.append((idx_frame - 1, bbox_tlwh, identities))
 
             end = time.time()
             print("time: {}s, fps: {}".format(end - start, 1 / (end - start)))
@@ -95,7 +102,31 @@ class Detector(object):
 
             if self.args.save_path:
                 self.output.write(im)
-            # exit(0)
+
+        # Write all tracked objs to file
+        write_results("results.txt", results, 'mot')
+            
+        # exit(0)
+
+def write_results(filename, results, data_type):
+    if data_type == 'mot':
+        save_format = '{frame},{id},{x1},{y1},{w},{h}\n'
+    elif data_type == 'kitti':
+        save_format = '{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n'
+    else:
+        raise ValueError(data_type)
+
+    with open(filename, 'w') as f:
+        for frame_id, tlwhs, track_ids in results:
+            if data_type == 'kitti':
+                frame_id -= 1
+            for tlwh, track_id in zip(tlwhs, track_ids):
+                if track_id < 0:
+                    continue
+                x1, y1, w, h = tlwh
+                x2, y2 = x1 + w, y1 + h
+                line = save_format.format(frame=frame_id, id=track_id, x1=x1, y1=y1, x2=x2, y2=y2, w=w, h=h)
+                f.write(line)
 
 
 def parse_args():
