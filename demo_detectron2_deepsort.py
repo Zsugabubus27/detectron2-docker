@@ -63,7 +63,16 @@ class Detector(object):
                 # FIXME: only the height is multiplies by 1.2, why?
                 # ANSWER: bbox dilation just in case bbox too small, delete this line if using a better pedestrian detector
                 bbox_xcycwh = bbox_xcycwh[mask]
-                bbox_xcycwh[:, 3:] *= 1.2
+                bbox_xcycwh[:, 3:] *= 1.1
+
+                # Összes box kirjazolása
+                bb_xyxy = [
+                    [xc - w/2, yc - h / 2 , xc + w/2, yc + h / 2] 
+                    for xc, yc, w, h in bbox_xcycwh]
+                bb_xyxy = [x for x, conf in zip(bb_xyxy, cls_conf) if conf > self.deepsort.min_confidence]
+                all1 = [1]*len(bb_xyxy)
+                im = draw_bboxes(im, bb_xyxy, all1)
+
 
 
                 # Do tracking
@@ -73,7 +82,6 @@ class Detector(object):
                 if len(outputs) > 0:
                     
                     # TODO: Missing: bbox_tlwh for writing to file
-                    
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
                     im = draw_bboxes(im, bbox_xyxy, identities)
