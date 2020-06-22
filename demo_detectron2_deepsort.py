@@ -21,7 +21,7 @@ class Detector(object):
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
         # FIXME: Max dist itt nem szerepelt
-        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.5, max_dist=1.0, min_confidence=0.1, 
+        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.6, max_dist=1.0, min_confidence=0.1, 
                         nms_max_overlap=0.7, max_iou_distance=0.7, max_age=70, n_init=3, nn_budget=100, use_cuda=use_cuda)
 
     def __enter__(self):
@@ -94,8 +94,7 @@ class Detector(object):
                     results.append((idx_frame - 1, bbox_tlwh, identities))
 
             end = time.time()
-            print("time: {}s, fps: {}".format(end - start, 1 / (end - start)))
-
+            print("time: {}s, fps: {}, frame: {}".format(end - start, 1 / (end - start), idx_frame - 1))
             if self.args.display:
                 cv2.imshow("test", im)
                 cv2.waitKey(1)
