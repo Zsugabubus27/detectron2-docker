@@ -79,19 +79,19 @@ class Detector(object):
 
 
 
-                # Do tracking
-                outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                # # Do tracking
+                # outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
                 
-                # Draw boxes for visualization
-                if len(outputs) > 0:
+                # # Draw boxes for visualization
+                # if len(outputs) > 0:
                     
-                    bbox_xyxy = outputs[:, :4]
-                    identities = outputs[:, -1]
-                    im = draw_bboxes(im, bbox_xyxy, identities)
+                #     bbox_xyxy = outputs[:, :4]
+                #     identities = outputs[:, -1]
+                #     im = draw_bboxes(im, bbox_xyxy, identities)
 
-                    # Write to file
-                    bbox_tlwh = [self.deepsort._xyxy_to_tlwh(bb) for bb in bbox_xyxy]
-                    results.append((idx_frame - 1, bbox_tlwh, identities))
+                #     # Write to file
+                #     bbox_tlwh = [self.deepsort._xyxy_to_tlwh(bb) for bb in bbox_xyxy]
+                #     results.append((idx_frame - 1, bbox_tlwh, identities))
 
             end = time.time()
             print("time: {}s, fps: {}, frame: {}".format(end - start, 1 / (end - start), idx_frame - 1))
