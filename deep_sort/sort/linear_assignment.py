@@ -63,9 +63,8 @@ def min_cost_matching(
     # cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
 
     # Összepárosítja, hogy melyik trackhez (row) melyik detekció (col) tartozik
-    #print('CostMx', cost_matrix)
     row_indices, col_indices = linear_assignment(cost_matrix)
-    #print('match:', row_indices, col_indices)
+
 
     matches, unmatched_tracks, unmatched_detections = [], [], []
     # Nem párosított detekciók kiválogatása
@@ -227,5 +226,4 @@ def gate_cost_matrix(
 
         # Equation 2
         cost_matrix[row, gating_distance > gating_threshold] = gated_cost
-    #print('Motion', cost_matrix)
     return cost_matrix

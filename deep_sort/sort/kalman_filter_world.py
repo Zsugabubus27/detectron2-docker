@@ -13,7 +13,7 @@ chi2inv95 = { 1: 3.8415, 2: 5.9915, 3: 7.8147,
              7: 14.067, 8: 15.507, 9: 16.919}
 
 
-class KalmanFilter(object):
+class KalmanFilterWorldCoordinate(object):
     """
     A simple Kalman filter for tracking bounding boxes in image space.
 
@@ -21,10 +21,10 @@ class KalmanFilter(object):
 
         x, y, a, h, vx, vy, va, vh
 
-    contains the bounding box center position (x, y), aspect ratio a, height h,
+    contains the position of the player's foot (x, y)  And the aspect ratio a, height h,
     and their respective velocities.
 
-    Object motion follows a constant velocity model. The bounding box location
+    Object motion follows a constant velocity model. The player's foot
     (x, y, a, h) is taken as direct observation of the state space (linear
     observation model).
 
@@ -35,7 +35,7 @@ class KalmanFilter(object):
 
         # Create Kalman filter model matrices.
         # _motion_mat: Ez az A mátrix: ebben van elkódolva a lineáris mozgásmodell
-        # _update_mat: TODO: Ez a H mx
+        # _update_mat: Ez a H mx
         self._motion_mat = np.eye(2 * ndim, 2 * ndim)
         for i in range(ndim):
             self._motion_mat[i, ndim + i] = dt
@@ -44,8 +44,8 @@ class KalmanFilter(object):
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
-        self._std_weight_position = 1. / 20
-        self._std_weight_velocity = 1. / 160
+        # self._std_weight_position = 1. / 20
+        # self._std_weight_velocity = 1. / 160
 
     def initiate(self, measurement):
         """Create track from unassociated measurement.
@@ -69,7 +69,8 @@ class KalmanFilter(object):
         mean_vel = np.zeros_like(mean_pos)
         mean = np.r_[mean_pos, mean_vel]
 
-        # Ez a kovariancia mx átlója, azaz ezek az értékek a megfelelő varianciák
+        # Ez a process kovariancia mx átlója, azaz ezek az értékek a megfelelő varianciák
+        # TODO: Ez a P, tehát a kezdeti process covariance. Erre valami jó becslést kell adni.
         std = [
             2 * self._std_weight_position * measurement[3],
             2 * self._std_weight_position * measurement[3],
@@ -102,17 +103,17 @@ class KalmanFilter(object):
 
         """
         # Ez a Qk-nak a kiszámolása. Qk függ a BBox magasságától
-        std_pos = [
+        # TODO: Process covariance mx, valahogy kimérni ezt is
+        Qk = [
             self._std_weight_position * mean[3],
             self._std_weight_position * mean[3],
             1e-2,
-            self._std_weight_position * mean[3]]
-        std_vel = [
+            self._std_weight_position * mean[3],
             self._std_weight_velocity * mean[3],
             self._std_weight_velocity * mean[3],
             1e-5,
             self._std_weight_velocity * mean[3]]
-        motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
+        motion_cov = np.diag(np.square(Qk))
 
         # A*X_{k-1}-nek felel meg: Tehát kiszámolja az előző állapot és a motion model alapján a kövi állapotot
         mean = np.dot(self._motion_mat, mean)
@@ -144,6 +145,8 @@ class KalmanFilter(object):
             self._std_weight_position * mean[3],
             1e-1,
             self._std_weight_position * mean[3]]
+        # TODO: Ez az R mx, ami a mérési pontatlanságot tartalmazza:
+        # dx, dy, da, dh --> távolság függvényében kell ezeknek szerepelniük!!!
         # Ez az R mx
         innovation_cov = np.diag(np.square(std))
 

@@ -23,6 +23,7 @@ class Detectron2:
         self.cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x/138205316/model_final_a3ec72.pkl"
 
 
+
         self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.0
         self.cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.1]
         self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.1
