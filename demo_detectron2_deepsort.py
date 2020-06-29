@@ -136,7 +136,7 @@ if __name__ == "__main__":
     if args.video_path is None:
         print('Debugging...')
         args.use_cuda = False
-        args.save_path = "valami.avi"
+        args.save_path = "debug.avi"
         args.video_path = "/home/dobreff/work/Dipterv/MLSA20/data/ISSIA_SoccerDataset/Sequences/vendeg_elorol.avi"
         with Detector(args) as det:
             det.detect()
