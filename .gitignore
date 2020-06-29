@@ -153,6 +153,7 @@ fabric.properties
 
 # Folders
 __pycache__/
+mlsavideos/
 
 
 # Files
@@ -160,3 +161,4 @@ __pycache__/
 *.t7
 *.mp4
 *.avi
+*.out
