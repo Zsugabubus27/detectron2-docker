@@ -1,7 +1,7 @@
 # vim: expandtab:ts=4:sw=4
 import numpy as np
 import scipy.linalg
-
+import pandas as pd
 
 """
 Table for the 0.95 quantile of the chi-square distribution with N degrees of
@@ -40,12 +40,30 @@ class KalmanFilterWorldCoordinate(object):
         for i in range(ndim):
             self._motion_mat[i, ndim + i] = dt
         self._update_mat = np.eye(ndim, 2 * ndim)
+        # TODO: Change path according to input
+        self.errorDf = pd.read_csv('/home/dobreff/work/Dipterv/MLSA20/vendeg_elorol_position_error_binned.csv')
+
 
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
         # self._std_weight_position = 1. / 20
         # self._std_weight_velocity = 1. / 160
+    def getError(self, x, y):
+        xbin = round(x / 25)
+        ybin = round(y / 25)
+        retDf = self.errorDf[(self.errorDf.xbin == xbin) & (self.errorDf.ybin == ybin)]
+
+        if len(retDf) == 1:
+            return retDf[['error', 'height_error', 'aspectRatio_error']].iloc[0].values
+        else:
+            print('Nincs a getErrorhoz pontos egyezés')
+            retDf = self.errorDf[(self.errorDf.xbin.isin([xbin, xbin - 1, xbin + 1])) & (self.errorDf.ybin.isin([ybin, ybin - 1, ybin + 1]))]
+            if len(retDf) < 1:
+                return self.errorDf[['error', 'height_error', 'aspectRatio_error']].mean().values
+            else:
+                return retDf[['error', 'height_error', 'aspectRatio_error']].mean().values
+        #return self.errorDf[(self.errorDf.xbin == xbin) & (self.errorDf.ybin == ybin)].error.iloc[0]
 
     def initiate(self, measurement):
         """Create track from unassociated measurement.
@@ -71,15 +89,16 @@ class KalmanFilterWorldCoordinate(object):
 
         # Ez a process kovariancia mx átlója, azaz ezek az értékek a megfelelő varianciák
         # TODO: Ez a P, tehát a kezdeti process covariance. Erre valami jó becslést kell adni.
+        posError, heightError, aspectError = self.getError(measurement[0], measurement[1])
         std = [
-            2 * self._std_weight_position * measurement[3],
-            2 * self._std_weight_position * measurement[3],
-            1e-2,
-            2 * self._std_weight_position * measurement[3],
-            10 * self._std_weight_velocity * measurement[3],
-            10 * self._std_weight_velocity * measurement[3],
-            1e-5,
-            10 * self._std_weight_velocity * measurement[3]]
+            posError,
+            posError,
+            aspectError,
+            heightError,
+            posError / 25,
+            posError / 25,
+            aspectError / 25,
+            heightError / 25]
         covariance = np.diag(np.square(std))
         return mean, covariance
 
@@ -104,15 +123,16 @@ class KalmanFilterWorldCoordinate(object):
         """
         # Ez a Qk-nak a kiszámolása. Qk függ a BBox magasságától
         # TODO: Process covariance mx, valahogy kimérni ezt is
+        posError, heightError, aspectError = self.getError(mean[0], mean[1])
         Qk = [
-            self._std_weight_position * mean[3],
-            self._std_weight_position * mean[3],
-            1e-2,
-            self._std_weight_position * mean[3],
-            self._std_weight_velocity * mean[3],
-            self._std_weight_velocity * mean[3],
-            1e-5,
-            self._std_weight_velocity * mean[3]]
+            posError,
+            posError,
+            aspectError,
+            heightError,
+            posError / 25,
+            posError / 25,
+            aspectError / 25,
+            heightError / 25]
         motion_cov = np.diag(np.square(Qk))
 
         # A*X_{k-1}-nek felel meg: Tehát kiszámolja az előző állapot és a motion model alapján a kövi állapotot
@@ -120,7 +140,6 @@ class KalmanFilterWorldCoordinate(object):
         # Kiszámolja az előző állapot covarianciájából: A*P_{k-1}*A^T + Qk
         covariance = np.linalg.multi_dot((
             self._motion_mat, covariance, self._motion_mat.T)) + motion_cov
-
         return mean, covariance
 
     def project(self, mean, covariance):
@@ -140,11 +159,13 @@ class KalmanFilterWorldCoordinate(object):
             estimate.
 
         """
+
+        posError, heightError, aspectError = self.getError(mean[0], mean[1])
         std = [
-            self._std_weight_position * mean[3],
-            self._std_weight_position * mean[3],
-            1e-1,
-            self._std_weight_position * mean[3]]
+            posError,
+            posError,
+            aspectError,
+            heightError]
         # TODO: Ez az R mx, ami a mérési pontatlanságot tartalmazza:
         # dx, dy, da, dh --> távolság függvényében kell ezeknek szerepelniük!!!
         # Ez az R mx
@@ -235,6 +256,10 @@ class KalmanFilterWorldCoordinate(object):
             mean, covariance = mean[:2], covariance[:2, :2]
             measurements = measurements[:, :2]
         
+        #print('KF', mean, measurements, covariance)
+        # with open('kalmanFilter.txt', 'a') as fd:
+        #     fd.write('{};{};{};{}\n'.format(*mean[:2], *measurements[0,:2]))
+
         cholesky_factor = np.linalg.cholesky(covariance)
         d = measurements - mean
         z = scipy.linalg.solve_triangular(
