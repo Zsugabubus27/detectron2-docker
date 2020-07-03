@@ -47,6 +47,8 @@ class KalmanFilter(object):
         self._std_weight_position = 1. / 20
         self._std_weight_velocity = 1. / 160
 
+        print('KalmanFilter init')
+
     def initiate(self, measurement):
         """Create track from unassociated measurement.
 
@@ -228,6 +230,8 @@ class KalmanFilter(object):
         # És az állapot kov.mx-nak is csak a bal felső 4x4-es mx-a
         mean, covariance = self.project(mean, covariance)
         
+        assert False
+
         if only_position:
             mean, covariance = mean[:2], covariance[:2, :2]
             measurements = measurements[:, :2]

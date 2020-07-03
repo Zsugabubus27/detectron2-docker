@@ -64,13 +64,14 @@ class Track:
     """
 
     def __init__(self, mean, covariance, track_id, n_init, max_age,
-                 feature=None):
+                 feature=None, coordMapper=None):
         self.mean = mean
         self.covariance = covariance
         self.track_id = track_id
         self.hits = 1
         self.age = 1
         self.time_since_update = 0
+        self.coordMapper = coordMapper
 
         self.state = TrackState.Tentative
         self.features = []
@@ -90,9 +91,13 @@ class Track:
             The bounding box.
 
         """
+        #Itt most már a mean a (worldX, worldY, a, h) -t jelenti
         ret = self.mean[:4].copy()
+        ret[:2] = self.coordMapper.xy2image([ret[:2]])[0]
         ret[2] *= ret[3]
-        ret[:2] -= ret[2:] / 2
+        #ret[:2] -= ret[2:] / 2
+        ret[0] -= ret[2] / 2 
+        ret[1] -= ret[3]
         return ret
 
     def to_tlbr(self):
@@ -135,8 +140,10 @@ class Track:
             The associated detection.
 
         """
+        #self.mean, self.covariance = kf.update(
+        #    self.mean, self.covariance, detection.to_xyah())
         self.mean, self.covariance = kf.update(
-            self.mean, self.covariance, detection.to_xyah())
+            self.mean, self.covariance, detection.to_worldxyah())
         self.features.append(detection.feature)
 
         self.hits += 1

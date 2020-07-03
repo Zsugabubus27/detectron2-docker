@@ -1,7 +1,7 @@
 # vim: expandtab:ts=4:sw=4
 from __future__ import absolute_import
 import numpy as np
-from . import kalman_filter
+from . import kalman_filter_world
 from . import linear_assignment
 from . import iou_matching
 from .track import Track
@@ -37,14 +37,16 @@ class Tracker:
 
     """
 
-    def __init__(self, metric, lambdaParam, max_iou_distance=0.7, max_age=70, n_init=3):
+    def __init__(self, metric, lambdaParam, max_iou_distance=0.7, max_age=70, n_init=3, coordMapper=None):
         self.metric = metric
         self.max_iou_distance = max_iou_distance
         self.max_age = max_age
         self.n_init = n_init
         self.lambdaParam = lambdaParam
+        self.coordMapper = coordMapper
 
-        self.kf = kalman_filter.KalmanFilter()
+        #self.kf = kalman_filter.KalmanFilter()
+        self.kf = kalman_filter_world.KalmanFilterWorldCoordinate()
         self.tracks = []
         self._next_id = 1
 
@@ -68,7 +70,7 @@ class Tracker:
         # Run matching cascade.
         matches, unmatched_tracks, unmatched_detections = \
             self._match(detections)
-
+        print('update:', len(matches), len(unmatched_tracks), len(unmatched_detections))
         # Update track set.
         # 1. A párosított trackeket updateli
         # 2. A nem párosított trackeket Missingnek jelöli (Deletedhez kell)
@@ -111,9 +113,11 @@ class Tracker:
             features = np.array([dets[i].feature for i in detection_indices])
             targets = np.array([tracks[i].track_id for i in track_indices])
             cost_matrix = self.metric.distance(features, targets)
+            print(cost_matrix)
             cost_matrix = linear_assignment.gate_cost_matrix(
                 self.kf, cost_matrix, tracks, dets, track_indices,
                 detection_indices, self.lambdaParam)
+            print('CostMx', cost_matrix)
             return cost_matrix
 
         # Split track set into confirmed and unconfirmed tracks.
@@ -142,14 +146,15 @@ class Tracker:
             linear_assignment.min_cost_matching(
                 iou_matching.iou_cost, self.max_iou_distance, self.tracks,
                 detections, iou_track_candidates, unmatched_detections)
-
+        print('_match vége:', len(self.tracks), self._next_id)
         matches = matches_a + matches_b
         unmatched_tracks = list(set(unmatched_tracks_a + unmatched_tracks_b))
         return matches, unmatched_tracks, unmatched_detections
 
     def _initiate_track(self, detection):
-        mean, covariance = self.kf.initiate(detection.to_xyah())
+        #mean, covariance = self.kf.initiate(detection.to_xyah())
+        mean, covariance = self.kf.initiate(detection.to_worldxyah())
         self.tracks.append(Track(
             mean, covariance, self._next_id, self.n_init, self.max_age,
-            detection.feature))
+            detection.feature, self.coordMapper))
         self._next_id += 1
