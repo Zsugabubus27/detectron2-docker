@@ -189,6 +189,8 @@ class NearestNeighborDistanceMetric(object):
             # Equation 5 second half
             cost_matrix[i, :] = cosineDistance * (1.0 - self.lambdaParam)
             
+            assert not (cosineDistance > self.matching_threshold).any(), "Az Appearance beleszól a buliba"
+
             cost_matrix[i, cosineDistance > self.matching_threshold] = gated_cost
         #print('Appearance', cost_matrix)
         return cost_matrix

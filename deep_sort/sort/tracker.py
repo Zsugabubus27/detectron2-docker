@@ -67,10 +67,21 @@ class Tracker:
             A list of detections at the current time step.
 
         """
+        # Print the state of every track and every detection
+        # ------------------------------
+        for track in self.tracks:
+            trackVelo = np.sum(np.array(track.mean[4:6]) ** 2) ** 0.5 * 25 * 0.1 * 3.6 
+            print('tID: {}, v={}, mean:{}, covariance: {}'.format(track.track_id, trackVelo, track.mean, track.covariance))
+
+        for i, det in enumerate(detections):
+            print('dID: {}, worldxyah: {}'.format(i, det.to_worldxyah()))
+
+        # ------------------------------
+
         # Run matching cascade.
         matches, unmatched_tracks, unmatched_detections = \
             self._match(detections)
-        print('update:', len(matches), len(unmatched_tracks), len(unmatched_detections))
+        
         # Update track set.
         # 1. A párosított trackeket updateli
         # 2. A nem párosított trackeket Missingnek jelöli (Deletedhez kell)
@@ -84,10 +95,6 @@ class Tracker:
         for detection_idx in unmatched_detections:
             self._initiate_track(detections[detection_idx])
         
-        # Print TrackID-s
-        # print('matches', [self.tracks[tid].track_id for tid, did in matches])
-        # Print TrackID-s
-        # print('unmatches', [self.tracks[tid].track_id for tid in unmatched_tracks])
 
         self.tracks = [t for t in self.tracks if not t.is_deleted()]
 
@@ -113,10 +120,9 @@ class Tracker:
             features = np.array([dets[i].feature for i in detection_indices])
             targets = np.array([tracks[i].track_id for i in track_indices])
             cost_matrix = self.metric.distance(features, targets)
-            print(cost_matrix)
             cost_matrix = linear_assignment.gate_cost_matrix(
                 self.kf, cost_matrix, tracks, dets, track_indices,
-                detection_indices, self.lambdaParam)
+                detection_indices, self.lambdaParam, only_position=False)
             print('CostMx', cost_matrix)
             return cost_matrix
 
@@ -131,7 +137,10 @@ class Tracker:
             linear_assignment.matching_cascade(
                 gated_metric, 1e+5, self.max_age,
                 self.tracks, detections, confirmed_tracks)
-
+        print('Tracker._match::matches_a:', [(self.tracks[k].track_id, d) for k, d in matches_a], 
+                'unmatched_tracks_a:', [self.tracks[k].track_id for k in unmatched_tracks_a],
+                'unmatched_detections_a', unmatched_detections)
+                
         # Associate remaining tracks together with unconfirmed tracks using IOU.
         # 1. az unconfirmed trackek és azon unmatched trackek kiválasztása akiknek a kora 1
         # 2. minden többi unmatched tracket elment
@@ -146,7 +155,11 @@ class Tracker:
             linear_assignment.min_cost_matching(
                 iou_matching.iou_cost, self.max_iou_distance, self.tracks,
                 detections, iou_track_candidates, unmatched_detections)
-        print('_match vége:', len(self.tracks), self._next_id)
+        
+        print('Tracker._match::matches_b:', [(self.tracks[k].track_id, d) for k, d in matches_b], 
+        'unmatched_tracks_b:', [self.tracks[k].track_id for k in unmatched_tracks_b],
+        'unmatched_detections_b', unmatched_detections)
+        
         matches = matches_a + matches_b
         unmatched_tracks = list(set(unmatched_tracks_a + unmatched_tracks_b))
         return matches, unmatched_tracks, unmatched_detections

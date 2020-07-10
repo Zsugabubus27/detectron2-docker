@@ -82,9 +82,15 @@ class DeepSort(object):
         self.tracker.update(detections)
 
         # output bbox identities
+        # TODO: Debug trackeket kivenni.
         outputs = []
+        deadtracks = []
         for track in self.tracker.tracks:
-            if not track.is_confirmed() or track.time_since_update > 1:
+            if not track.is_confirmed() or track.time_since_update >= 1:
+                box = track.to_tlwh()
+                x1,y1,x2,y2 = self._tlwh_to_xyxy(box)
+                track_id = str(track.track_id) + " " + str(track.time_since_update)
+                deadtracks.append([x1,y1,x2,y2,track_id])
                 continue
             box = track.to_tlwh()
             x1,y1,x2,y2 = self._tlwh_to_xyxy(box)
@@ -92,7 +98,7 @@ class DeepSort(object):
             outputs.append(np.array([x1,y1,x2,y2,track_id], dtype=np.int))
         if len(outputs) > 0:
             outputs = np.stack(outputs,axis=0)
-        return outputs
+        return outputs, deadtracks
     """
     TODO:
         Convert bbox from xc_yc_w_h to xtl_ytl_w_h

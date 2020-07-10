@@ -57,7 +57,6 @@ class KalmanFilterWorldCoordinate(object):
         if len(retDf) == 1:
             return retDf[['error', 'height_error', 'aspectRatio_error']].iloc[0].values
         else:
-            print('Nincs a getErrorhoz pontos egyezés')
             retDf = self.errorDf[(self.errorDf.xbin.isin([xbin, xbin - 1, xbin + 1])) & (self.errorDf.ybin.isin([ybin, ybin - 1, ybin + 1]))]
             if len(retDf) < 1:
                 return self.errorDf[['error', 'height_error', 'aspectRatio_error']].mean().values
@@ -93,8 +92,8 @@ class KalmanFilterWorldCoordinate(object):
         std = [
             posError,
             posError,
-            aspectError,
-            heightError,
+            aspectError * 2.5,
+            heightError * 2.5,
             posError / 25,
             posError / 25,
             aspectError / 25,
@@ -127,8 +126,8 @@ class KalmanFilterWorldCoordinate(object):
         Qk = [
             posError,
             posError,
-            aspectError,
-            heightError,
+            aspectError * 2.5,
+            heightError * 2.5,
             posError / 25,
             posError / 25,
             aspectError / 25,
@@ -164,8 +163,8 @@ class KalmanFilterWorldCoordinate(object):
         std = [
             posError,
             posError,
-            aspectError,
-            heightError]
+            aspectError * 2.5,
+            heightError * 2.5]
         # TODO: Ez az R mx, ami a mérési pontatlanságot tartalmazza:
         # dx, dy, da, dh --> távolság függvényében kell ezeknek szerepelniük!!!
         # Ez az R mx
