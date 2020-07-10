@@ -52,9 +52,7 @@ def min_cost_matching(
 
     if len(detection_indices) == 0 or len(track_indices) == 0:
         return [], track_indices, detection_indices  # Nothing to match.
-    print('min_cost_matching', distance_metric)
     cost_matrix = distance_metric(tracks, detections, track_indices, detection_indices)
-    print('min_cost_matching : costMx', cost_matrix)
     # Equation 4
     # Itt számolja ki hogy az egyes cellák nagysága nagyobb-e mint a max_distance, azaz a t(2)
     # Azonban ezt csak azért teheti meg, mert a costMx-ban csak a d(2)-es metrika értékei szerepelnek
@@ -149,12 +147,14 @@ def matching_cascade(
         ]
         if len(track_indices_l) == 0:  # Nothing to match at this level
             continue
-        print('matching_cascade and min cost matching', distance_metric)
+        print('matching_cascade level:{}'.format(level))
         matches_l, _, unmatched_detections = \
             min_cost_matching(
                 distance_metric, max_distance, tracks, detections,
                 track_indices_l, unmatched_detections)
         matches += matches_l
+        
+        print('\t matches:', [tracks[k].track_id for k, _ in matches_l])
     unmatched_tracks = list(set(track_indices) - set(k for k, _ in matches))
     return matches, unmatched_tracks, unmatched_detections
 
@@ -217,7 +217,7 @@ def gate_cost_matrix(
         track = tracks[track_idx]
         # Equation 1
         gating_distance = kf.gating_distance(track.mean, track.covariance, measurements, only_position)
-        print('GatingDistance', gating_distance)
+        print('GatingDistance trackID: {}'.format(track.track_id), gating_distance)
         # Equation 5, first half
         cost_matrix[row, :] += gating_distance * lambdaParam
 

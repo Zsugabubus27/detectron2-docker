@@ -8,7 +8,7 @@ import cv2
 
 from deep_sort import DeepSort
 from detectron2_detection import Detectron2
-from util import draw_bboxes
+from util import draw_bboxes, draw_dead_bboxes, draw_frameNum
 from deep_sort import coord_mapper
 import pickle
 
@@ -24,7 +24,7 @@ class Detector(object):
         myCoordMapper = coord_mapper.CoordMapper(coord_mapper.ISSIA_vendeg_elorol)
 
         self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=1.0, coordMapper=myCoordMapper, max_dist=1.0, min_confidence=0.1, 
-                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=125, n_init=3, nn_budget=50, use_cuda=use_cuda)
+                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=75, n_init=3, nn_budget=50, use_cuda=use_cuda)
 
     def __enter__(self):
         assert os.path.isfile(self.args.video_path), "Error: path error"
@@ -69,7 +69,7 @@ class Detector(object):
             # bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
             detectionDf = df[df['frame'] == idx_frame]
             # Csak adott id-jú embert választok ki
-            detectionDf = detectionDf[detectionDf.id.isin([120, 6, 14, 108, 21])]
+            #detectionDf = detectionDf[detectionDf.id.isin([1, 120, 6, 14, 108, 21])]
 
             bbox_xcycwh = detectionDf[['xc', 'yc','width', 'height']].values
             cls_conf = detectionDf['cls_conf'].values
@@ -99,8 +99,8 @@ class Detector(object):
                 im = draw_bboxes(im, bb_xyxy, all1)
 
                 # Do tracking
-                outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
-                print(len(outputs))
+                outputs, deadtracks = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                print('len outputs:{0}, len deadtracks:{1}'.format(len(outputs), len(deadtracks)))
                 
                 # Draw boxes for visualization
                 if len(outputs) > 0:
@@ -112,8 +112,17 @@ class Detector(object):
                     bbox_tlwh = [self.deepsort._xyxy_to_tlwh(bb) for bb in bbox_xyxy]
                     results.append((idx_frame - 1, bbox_tlwh, identities))
 
+                im = draw_frameNum(im, (1832, 16), idx_frame - 1)
+
+                # Draw boxes for dead tracks for debugging
+                if len(outputs) > 0:
+                    bbox_xyxy = [x[:4] for x in deadtracks]
+                    labels = [x[-1] for x in deadtracks]
+                    im = draw_dead_bboxes(im, bbox_xyxy, labels)
+                
+
             end = time.time()
-            print("time: {}s, fps: {}, frame: {}".format(end - start, 1 / (end - start), idx_frame - 1))
+            print("time: {}s, fps: {}, frame: {}".format(end - start, 1 / (end - start), idx_frame - 1), '\n', '-'*30, '\n')
 
             if self.args.save_path:
                 self.output.write(im)
