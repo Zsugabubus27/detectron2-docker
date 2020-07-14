@@ -47,7 +47,7 @@ testloader = torch.utils.data.DataLoader(
     torchvision.datasets.ImageFolder(test_dir, transform=transform_test),
     batch_size=64,shuffle=True
 )
-num_classes = len(trainloader.dataset.classes)
+num_classes = max(len(trainloader.dataset.classes), len(testloader.dataset.classes))
 
 # net definition
 start_epoch = 0
@@ -78,7 +78,7 @@ def train(epoch):
     total = 0
     interval = args.interval
     start = time.time()
-    for idx, (inputs, labels) in enumerate(trainloader):
+    for idx, (inputs, labels, frameNum) in enumerate(trainloader):
         # forward
         inputs,labels = inputs.to(device),labels.to(device)
         outputs = net(inputs)
@@ -141,7 +141,7 @@ def test(epoch):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(checkpoint, './checkpoint/ckpt.t7')
+        torch.save(checkpoint, './checkpoint/ckpt_new.t7')
 
     return test_loss/len(testloader), 1.- correct/total
 
