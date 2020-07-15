@@ -11,12 +11,6 @@ import natsort
 
 from model import Net
 
-# parser = argparse.ArgumentParser(description="Train on market1501")
-# parser.add_argument("--data-dir",default='data',type=str)
-# parser.add_argument("--no-cuda",action="store_true")
-# parser.add_argument("--gpu-id",default=0,type=int)
-# args = parser.parse_args()
-
 # Define my custom dataset which contains the ISSIA Dataset
 
 class ISSIADataSet(Dataset):
@@ -26,7 +20,9 @@ class ISSIADataSet(Dataset):
         all_imgs = os.listdir(main_dir)
         self.total_imgs = natsort.natsorted(all_imgs)
         
-        self.classes = sorted([int(imgname[:-4].split('_')[1]) for imgname in self.total_imgs])
+        self.classes = set([int(imgname[:-4].split('_')[1]) for imgname in self.total_imgs])
+        self.classes = sorted(self.classes)
+        self.classes_to_idx = {cID : idx for idx, cID in enumerate(self.classes)}
 
     def __len__(self):
         return len(self.total_imgs)
@@ -39,11 +35,14 @@ class ISSIADataSet(Dataset):
         tensor_image = self.transform(image)
         return tensor_image, label, frameNum
 
+rootPath = os.path.dirname(os.path.abspath(__file__))
+
 # Global variables
+checkpoint_path = os.path.join(rootPath, "checkpoint/ckpt_new.t7")
 gpu_id = 0
 no_cuda = True
 data_dir = '/home/dobreff/work/Dipterv/MLSA20/data/CNN_dataset/vendeg_elorol/'
-
+print(checkpoint_path)
 
 # device
 device = "cuda:{}".format(args.gpu_id) if torch.cuda.is_available() and not args.no_cuda else "cpu"
@@ -62,10 +61,10 @@ dataloader = torch.utils.data.DataLoader(
 )
 
 # net definition
-net = Net(reid=True)
-assert os.path.isfile("./checkpoint/ckpt.t7"), "Error: no checkpoint file found!"
-print('Loading from checkpoint/ckpt.t7')
-checkpoint = torch.load("./checkpoint/ckpt.t7", map_location=torch.device('cpu'))
+net = Net(reid=True, num_classes=21)
+assert os.path.isfile(checkpoint_path), "Error: no checkpoint file found!"
+print('Loading from {}'.format(checkpoint_path))
+checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
 net_dict = checkpoint['net_dict']
 net.load_state_dict(net_dict)
 net.eval()
@@ -90,4 +89,4 @@ features = {
     "ql": query_labels,
     "qframe": query_framenums,
 }
-torch.save(features,"features.pth")
+torch.save(features,os.path.join(rootPath, "features2.pth"))
