@@ -1,8 +1,11 @@
 import torch
 import pandas as pd
+import os
 
 # Save features, labels and frame number to a pandas dataframe
-features = torch.load("features.pth")
+rootPath = os.path.dirname(os.path.abspath(__file__))
+
+features = torch.load(os.path.join(rootPath, "features2.pth"))
 qf = features["qf"].data.numpy()
 ql = features["ql"].data.numpy()
 qframe = features["qframe"].data.numpy()
@@ -10,7 +13,7 @@ qframe = features["qframe"].data.numpy()
 qfdf = pd.DataFrame(qf)
 qfdf['label'] = ql
 qfdf['frameNum'] = qframe
-qfdf.to_csv('vendeg_elorol_features.csv')
+qfdf.to_csv(os.path.join(rootPath, 'vendeg_elorol_features_new.csv'))
 
 # features = torch.load("features.pth")
 # qf = features["qf"]
