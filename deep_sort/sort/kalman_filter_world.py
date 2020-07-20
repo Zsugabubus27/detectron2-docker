@@ -42,7 +42,11 @@ class KalmanFilterWorldCoordinate(object):
         self._update_mat = np.eye(ndim, 2 * ndim)
         # TODO: Change path according to input
         self.errorDf = pd.read_csv('/home/dobreff/work/Dipterv/MLSA20/vendeg_elorol_position_error_binned.csv')
-
+        self.posError_coeff = 1
+        self.aspectError_coeff = 2.5
+        self.heighError_coeff = 2.5
+        self.velocityError_coeff = 1 / 6
+        self.inputVideo = 'CSG'
 
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
@@ -50,19 +54,26 @@ class KalmanFilterWorldCoordinate(object):
         # self._std_weight_position = 1. / 20
         # self._std_weight_velocity = 1. / 160
     def getError(self, x, y):
-        xbin = round(x / 25)
-        ybin = round(y / 25)
-        retDf = self.errorDf[(self.errorDf.xbin == xbin) & (self.errorDf.ybin == ybin)]
+        if self.inputVideo == 'ISSIA': 
+            xbin = round(x / 25)
+            ybin = round(y / 25)
+            retDf = self.errorDf[(self.errorDf.xbin == xbin) & (self.errorDf.ybin == ybin)]
 
-        if len(retDf) == 1:
-            return retDf[['error', 'height_error', 'aspectRatio_error']].iloc[0].values
-        else:
-            retDf = self.errorDf[(self.errorDf.xbin.isin([xbin, xbin - 1, xbin + 1])) & (self.errorDf.ybin.isin([ybin, ybin - 1, ybin + 1]))]
-            if len(retDf) < 1:
-                return self.errorDf[['error', 'height_error', 'aspectRatio_error']].mean().values
+            if len(retDf) == 1:
+                return retDf[['error', 'height_error', 'aspectRatio_error']].iloc[0].values
             else:
-                return retDf[['error', 'height_error', 'aspectRatio_error']].mean().values
-        #return self.errorDf[(self.errorDf.xbin == xbin) & (self.errorDf.ybin == ybin)].error.iloc[0]
+                retDf = self.errorDf[(self.errorDf.xbin.isin([xbin, xbin - 1, xbin + 1])) & (self.errorDf.ybin.isin([ybin, ybin - 1, ybin + 1]))]
+                if len(retDf) < 1:
+                    return self.errorDf[['error', 'height_error', 'aspectRatio_error']].mean().values
+                else:
+                    return retDf[['error', 'height_error', 'aspectRatio_error']].mean().values
+        elif self.inputVideo == 'CSG':
+            dist_from_cam = ((x-512)**2 + (y-661)**2)**0.5
+            heightError_func = lambda dist: (1.8/-270)*dist + 6.8
+            posError_func = lambda dist: ((60-5)/836**2) * dist**2 + 5
+            aspectError_func = lambda dist: 0.030
+            return posError_func(dist_from_cam), heightError_func(dist_from_cam), aspectError_func(dist_from_cam)
+
 
     def initiate(self, measurement):
         """Create track from unassociated measurement.
@@ -90,14 +101,14 @@ class KalmanFilterWorldCoordinate(object):
         # TODO: Ez a P, tehát a kezdeti process covariance. Erre valami jó becslést kell adni.
         posError, heightError, aspectError = self.getError(measurement[0], measurement[1])
         std = [
-            posError,
-            posError,
-            aspectError * 2.5,
-            heightError * 2.5,
-            posError / 25,
-            posError / 25,
-            aspectError / 25,
-            heightError / 25]
+            posError * self.posError_coeff,
+            posError * self.posError_coeff,
+            aspectError * self.aspectError_coeff,
+            heightError * self.heighError_coeff,
+            posError * self.velocityError_coeff,
+            posError * self.velocityError_coeff,
+            aspectError * self.velocityError_coeff,
+            heightError * self.velocityError_coeff]
         covariance = np.diag(np.square(std))
         return mean, covariance
 
@@ -124,14 +135,14 @@ class KalmanFilterWorldCoordinate(object):
         # TODO: Process covariance mx, valahogy kimérni ezt is
         posError, heightError, aspectError = self.getError(mean[0], mean[1])
         Qk = [
-            posError,
-            posError,
-            aspectError * 2.5,
-            heightError * 2.5,
-            posError / 25,
-            posError / 25,
-            aspectError / 25,
-            heightError / 25]
+            posError * self.posError_coeff,
+            posError * self.posError_coeff,
+            aspectError * self.aspectError_coeff,
+            heightError * self.heighError_coeff,
+            posError * self.velocityError_coeff,
+            posError * self.velocityError_coeff,
+            aspectError * self.velocityError_coeff,
+            heightError * self.velocityError_coeff]
         motion_cov = np.diag(np.square(Qk))
 
         # A*X_{k-1}-nek felel meg: Tehát kiszámolja az előző állapot és a motion model alapján a kövi állapotot
@@ -161,10 +172,10 @@ class KalmanFilterWorldCoordinate(object):
 
         posError, heightError, aspectError = self.getError(mean[0], mean[1])
         std = [
-            posError,
-            posError,
-            aspectError * 2.5,
-            heightError * 2.5]
+            posError * self.posError_coeff,
+            posError * self.posError_coeff,
+            aspectError * self.aspectError_coeff,
+            heightError * self.heighError_coeff]
         # TODO: Ez az R mx, ami a mérési pontatlanságot tartalmazza:
         # dx, dy, da, dh --> távolság függvényében kell ezeknek szerepelniük!!!
         # Ez az R mx

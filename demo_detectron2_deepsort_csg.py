@@ -11,33 +11,41 @@ from detectron2_detection import Detectron2
 from util import draw_bboxes, draw_dead_bboxes, draw_frameNum
 from deep_sort import coord_mapper
 import pickle
+import natsort
+import glob
 
 class Detector(object):
     def __init__(self, args):
         self.args = args
         use_cuda = bool(strtobool(self.args.use_cuda))
 
-        self.vdo = cv2.VideoCapture()
+        #self.vdo = cv2.VideoCapture()
+        self.imgList = natsort.natsorted(glob.glob(self.args.imgs_path))
         self.detectron2 = Detectron2()
 
         # Initialize coordinate mapper
         self.myCoordMapper = coord_mapper.CoordMapperCSG()
+        self.fps = 6
 
-        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=1.0, coordMapper=self.myCoordMapper, max_dist=1.0, min_confidence=0.1, 
-                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=75, n_init=3, nn_budget=50, use_cuda=use_cuda)
+        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.6, coordMapper=self.myCoordMapper, max_dist=1.0, min_confidence=0.1, 
+                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=self.fps*3, n_init=3, nn_budget=50, use_cuda=use_cuda)
 
     def __enter__(self):
-        assert os.path.isfile(self.args.video_path), "Error: path error"
-        self.vdo.open(self.args.video_path)
-        self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        #assert os.path.isfile(self.args.video_path), "Error: path error"
+        #self.vdo.open(self.args.video_path)
+        #self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
+        #self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        img = cv2.imread(self.imgList[0])
+        self.im_height, self.im_width, _ = img.shape
+
 
         # FIXME: Output FPS is hardcoded to 20
         if self.args.save_path:
-            fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 25, (self.im_width, self.im_height))
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            self.output = cv2.VideoWriter(self.args.save_path, fourcc, self.fps, (self.im_width, self.im_height))
 
-        assert self.vdo.isOpened()
+        #assert self.vdo.isOpened()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -50,12 +58,14 @@ class Detector(object):
         allDetection = dict()
         idx_frame = 0
 
-        while self.vdo.grab():
+        #while self.vdo.grab():
+        while idx_frame < len(self.imgList):
             start = time.time()
 
             # Retrieve next frame
-            _, im = self.vdo.retrieve()
-            # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+            #_, im = self.vdo.retrieve()
+            im = cv2.imread(self.imgList[idx_frame])
+            # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB) # only for images
 
             # Detect object on image
             bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
@@ -116,7 +126,7 @@ class Detector(object):
                 self.output.write(im)
 
         # Write all tracked objs to file
-        write_results("results.txt", results, 'mot')
+        write_results(self.args.result_path, results, 'mot')
 
 def write_results(filename, results, data_type):
     if data_type == 'mot':
@@ -153,8 +163,10 @@ if __name__ == "__main__":
     if args.video_path is None:
         print('Debugging...')
         args.use_cuda = "False"
-        args.save_path = "debug_wKF_csg.avi"
-        args.video_path = "/home/dobreff/work/Dipterv/MLSA20/data/video_46000_46100.avi"
+        args.save_path = "/mnt/data/mlsa20_cr/out/HUN_BIH_first_half.avi"
+        args.result_path = "/mnt/data/mlsa20_cr/out/HUN_BIH_first_half.txt"
+        #args.video_path = "/home/dobreff/work/Dipterv/MLSA20/data/video_46000_47000.avi"
+        args.imgs_path = "/mnt/data/mlsa20_cr/src/full_03_29_10_HZ/*.png"
         with Detector(args) as det:
             det.detect()
     else:

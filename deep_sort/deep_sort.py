@@ -62,9 +62,7 @@ class DeepSort(object):
         # 3. Creates Detection object from detections AND filters only detections which detection confidence is higher than min_confidence
         features = self._get_features(bbox_xywh, ori_img)
         bbox_tlwh = self._xywh_to_tlwh(bbox_xywh)
-        print('-'*60)
         worldcoords_xy = self.coordMapper.image2xy([self._tlwh_to_footXY(tlwh) for tlwh in bbox_tlwh])
-        print('#'*60)
         detections = [Detection(tlwh, conf, feat, worldXY) for tlwh, conf, feat, worldXY in 
                         zip(bbox_tlwh, confidences, features, worldcoords_xy) if conf > self.min_confidence]
         #detections = [Detection(bbox_tlwh[i], conf, features[i]) for i,conf in enumerate(confidences) if conf>self.min_confidence]

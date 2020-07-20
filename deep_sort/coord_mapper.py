@@ -47,9 +47,22 @@ class CoordMapper():
 
 
 class CoordMapperCSG():
-    def __init__(self):
-        pts_on_original_left = [[1264.7023,499.5309],[1870.1519,549.1178 ],[2517.0312,1275.4386 ],[ 192.16057,548.8432 ]]
-        pts_on_original_right = [[755.81616,474.7149],[1361.8402,456.584],[2482.6863,568.66864],[257.55048,1084.8362]]
+    def __init__(self, match_code=None):
+        if match_code is None:
+            raise ValueError('Match code must not be null')
+        elif match_code == 'HUN-BEL 1. Half':
+            pts_on_original_left = [[1264.7023,499.5309],[1870.1519,549.1178 ],[2517.0312,1275.4386 ],[ 192.16057,548.8432 ]]
+            pts_on_original_right = [[755.81616,474.7149],[1361.8402,456.584],[2482.6863,568.66864],[257.55048,1084.8362]]
+        elif match_code == 'HUN-BEL 2. Half':
+            left_side_corner_pixels = [[1234.9076,565.41675],[1820.1249,625.699],[2634.2039,1560.3821],[112.417625,578.029]]
+            right_side_corner_pixels = [[699.91187,376.78415],[1335.986,351.89987],[2443.642,449.27625],[182.1498,1067.1337]]
+        elif match_code == 'HUN-BIH 1. Half':
+            left_side_corner_pixels = [[1285.3419,488.37946],[1907.9744,536.2288],[2531.8086,1275.588],[249.60295,536.55334]]
+            right_side_corner_pixels = [[750.19385,696.3518],[1341.4415,678.7712],[2423.2375,765.8122],[-256.7615,1686.2401]]
+        elif match_code == 'HUN-BIH 2. Half':
+            left_side_corner_pixels = [[1238.4844,566.6143],[1830.0404,611.1001],[2555.913,1429.3566],[138.59488,616.6093]]
+            right_side_corner_pixels = [[ 677.27747,345.93982],[1324.5835,388.31668],[2329.706,589.34125],[135.92366,916.29474]]
+        
         self.pts_on_transformed = [[0,0],[521,0],[521,661],[0,661]]
         self.full_size_width = 2560 * 2
         self.full_size_height = 1440 * 2
