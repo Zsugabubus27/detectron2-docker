@@ -74,7 +74,6 @@ class KalmanFilterWorldCoordinate(object):
             aspectError_func = lambda dist: 0.030
             return posError_func(dist_from_cam), heightError_func(dist_from_cam), aspectError_func(dist_from_cam)
 
-
     def initiate(self, measurement):
         """Create track from unassociated measurement.
 

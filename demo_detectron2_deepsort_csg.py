@@ -11,6 +11,7 @@ from detectron2_detection import Detectron2
 from util import draw_bboxes, draw_dead_bboxes, draw_frameNum
 from deep_sort import coord_mapper
 import pickle
+
 import natsort
 import glob
 
@@ -57,6 +58,7 @@ class Detector(object):
         results = []
         allDetection = dict()
         idx_frame = 0
+
 
         #while self.vdo.grab():
         while idx_frame < len(self.imgList):
@@ -127,7 +129,6 @@ class Detector(object):
 
         # Write all tracked objs to file
         write_results(self.args.result_path, results, 'mot')
-
 def write_results(filename, results, data_type):
     if data_type == 'mot':
         save_format = '{frame},{id},{x1},{y1},{w},{h}\n'
