@@ -24,7 +24,7 @@ class Detector(object):
         self.detectron2 = Detectron2()
 
         # Initialize coordinate mapper
-        self.myCoordMapper = coord_mapper.CoordMapperCSG()
+        self.myCoordMapper = coord_mapper.CoordMapperCSG(match_code='HUN-BEL 2. Half')
         self.fps = 6
 
         self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.6, coordMapper=self.myCoordMapper, max_dist=1.0, min_confidence=0.1, 
@@ -163,10 +163,10 @@ if __name__ == "__main__":
     if args.video_path is None:
         print('Debugging...')
         args.use_cuda = "False"
-        args.save_path = "/mnt/data/mlsa20_cr/out/HUN_BIH_first_half.avi"
-        args.result_path = "/mnt/data/mlsa20_cr/out/HUN_BIH_first_half.txt"
+        args.save_path = "/mnt/data/mlsa20_cr/out/HUN_BEL_second_half.avi"
+        args.result_path = "/mnt/data/mlsa20_cr/out/HUN_BEL_second_half.txt"
         #args.video_path = "/home/dobreff/work/Dipterv/MLSA20/data/video_46000_47000.avi"
-        args.imgs_path = "/mnt/data/mlsa20_cr/src/full_03_29_10_HZ/*.png"
+        args.imgs_path = "/mnt/data/mlsa20_cr/src/masodik_felido/*.png"
         with Detector(args) as det:
             det.detect()
     else:
