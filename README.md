@@ -3,9 +3,10 @@
 
 ### Demo
 1. Clone this repository: `git clone --recurse-submodules https://github.com/Zsugabubus27/detectron2-deepsort-pytorch.git`
-2. Install detectron2: `cd detectron2-deepsort-pytorch` and `pip install -e detectron2/`
-3. Install `deepsort` requirements: `pip install -r requirements.txt`
-4. Run the demo: `python demo_detectron2_deepsort.py path/to/example_video.avi`
+2. Install torch!
+3. Install detectron2: `cd detectron2-deepsort-pytorch` and `pip install -e detectron2/`
+4. Install `deepsort` requirements: `pip install -r requirements.txt`
+5. Run the demo: `python demo_detectron2_deepsort.py path/to/example_video.avi`
 
 ### Notes:
 1. Try out different detectron2 models: Change the configs in `___init__` of `detectron2_detection.py`
