@@ -52,6 +52,12 @@ class Detectron2:
         return cmin, rmin, cmax, rmax
 
     def detect(self, im):
+        '''
+        Returns the detections:
+            bbox_xcycwh : The center X, Y and Width, Height of bounding boxes
+            cls_conf : The confidence score for a detection to be a person
+            cls_id : Class ID of the detected class (always 0) 
+        '''
         # Predictor performs detection here
         outputs = self.predictor(im)
         boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()

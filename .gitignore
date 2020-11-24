@@ -154,6 +154,7 @@ fabric.properties
 # Folders
 __pycache__/
 mlsavideos/
+.vscode/
 
 
 # Files
