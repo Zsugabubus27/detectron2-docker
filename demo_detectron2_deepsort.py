@@ -2,13 +2,15 @@ import argparse
 import os
 import time
 from distutils.util import strtobool
+import pandas as pd
 
 import cv2
 
 from deep_sort import DeepSort
 from detectron2_detection import Detectron2
-from util import draw_bboxes
-
+from util import draw_bboxes, draw_dead_bboxes, draw_frameNum
+from deep_sort import coord_mapper
+import pickle
 
 class Detector(object):
     def __init__(self, args):
@@ -17,9 +19,12 @@ class Detector(object):
 
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
-        # FIXME: Max dist itt nem szerepelt
-        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=0.6, max_dist=1.0, min_confidence=0.1, 
-                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=25, n_init=3, nn_budget=50, use_cuda=use_cuda)
+
+        # Initialize coordinate mapper
+        myCoordMapper = coord_mapper.CoordMapper(coord_mapper.ISSIA_kozep_elorol)
+
+        self.deepsort = DeepSort(args.deepsort_checkpoint, lambdaParam=1.0, coordMapper=myCoordMapper, max_dist=1.0, min_confidence=0.1, 
+                        nms_max_overlap=0.7, max_iou_distance=0.7, max_age=75, n_init=3, nn_budget=50, use_cuda=use_cuda)
 
     def __enter__(self):
         assert os.path.isfile(self.args.video_path), "Error: path error"
@@ -30,7 +35,7 @@ class Detector(object):
         # FIXME: Output FPS is hardcoded to 20
         if self.args.save_path:
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 6, (self.im_width, self.im_height))
+            self.output = cv2.VideoWriter(self.args.save_path, fourcc, 25, (self.im_width, self.im_height))
 
         assert self.vdo.isOpened()
         return self
@@ -42,46 +47,64 @@ class Detector(object):
     def detect(self):
         # Check wheter there is next frame
         results = []
+        allDetection = dict()
         idx_frame = 0
+
+        # TMP Detection
+        # azért csv mert az uj verzió nem tudja a régi prq-t olvasni
+        df = pd.read_csv('/home/dobreff/work/Dipterv/MLSA20/data/ISSIA_SoccerDataset/Annotation/kozep_elorol.csv')
+        df = df[df['name'] == 'Person']
+        df['cls_ids'] = 0
+        df['cls_conf'] = 1.0 
+        df['xc'] = (df['x'] + df['width'].div(2)).astype(float)
+        df['yc'] = (df['y'] + df['height'].div(2)).astype(float)
+
         while self.vdo.grab():
             start = time.time()
-            idx_frame += 1
 
             # Retrieve next frame
             _, im = self.vdo.retrieve()
             # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
             # Detect object on image
-            bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
+            # bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
+            detectionDf = df[df['frame'] == idx_frame]
+            # Csak adott id-jú embert választok ki
+            #detectionDf = detectionDf[detectionDf.id.isin([1, 120, 6, 14, 108, 21])]
+
+            bbox_xcycwh = detectionDf[['xc', 'yc','width', 'height']].values
+            cls_conf = detectionDf['cls_conf'].values
+            cls_ids = detectionDf['cls_ids'].values
+            
 
             # TODO: Kell ide null check?  
             if bbox_xcycwh is not None: # and len(bbox_xcycwh) > 0
-                # FIXME: This is double check since all the returned boxes are person objects (in the detect funcion it is asserted)
+                # NOTE: This is double check since all the returned boxes are person objects (in the detect funcion it is asserted)
                 # select class person
                 mask = cls_ids == 0          
                 cls_conf = cls_conf[mask]
 
-                # FIXME: only the height is multiplies by 1.2, why?
+                # NOTE: only the height is multiplies by 1.2, why?
                 # ANSWER: bbox dilation just in case bbox too small, delete this line if using a better pedestrian detector
+                # TODO: Uncomment 1.1 
                 bbox_xcycwh = bbox_xcycwh[mask]
-                bbox_xcycwh[:, 3:] *= 1.1
+                #bbox_xcycwh[:, 3:] *= 1.1
 
+                idx_frame += 1
                 # Összes box kirjazolása
                 bb_xyxy = [
                     [xc - w/2, yc - h / 2 , xc + w/2, yc + h / 2] 
                     for xc, yc, w, h in bbox_xcycwh]
                 bb_xyxy = [x for x, conf in zip(bb_xyxy, cls_conf) if conf > self.deepsort.min_confidence]
-                all1 = [1]*len(bb_xyxy)
+                all1 = [None]*len(bb_xyxy)
                 im = draw_bboxes(im, bb_xyxy, all1)
 
-
-
                 # Do tracking
-                outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                outputs, deadtracks = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                print('len outputs:{0}, len deadtracks:{1}'.format(len(outputs), len(deadtracks)))
                 
                 # Draw boxes for visualization
                 if len(outputs) > 0:
-                    
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
                     im = draw_bboxes(im, bbox_xyxy, identities)
@@ -90,8 +113,17 @@ class Detector(object):
                     bbox_tlwh = [self.deepsort._xyxy_to_tlwh(bb) for bb in bbox_xyxy]
                     results.append((idx_frame - 1, bbox_tlwh, identities))
 
+                im = draw_frameNum(im, (1832, 16), idx_frame - 1)
+
+                # Draw boxes for dead tracks for debugging
+                if len(outputs) > 0:
+                    bbox_xyxy = [x[:4] for x in deadtracks]
+                    labels = [x[-1] for x in deadtracks]
+                    im = draw_dead_bboxes(im, bbox_xyxy, labels)
+                
+
             end = time.time()
-            print("time: {}s, fps: {}, frame: {}".format(end - start, 1 / (end - start), idx_frame - 1))
+            print("time: {}s, fps: {}, frame: {}".format(end - start, 1 / (end - start), idx_frame - 1), '\n', '-'*30, '\n')
 
             if self.args.save_path:
                 self.output.write(im)
@@ -99,7 +131,6 @@ class Detector(object):
         # Write all tracked objs to file
         write_results("results.txt", results, 'mot')
             
-        # exit(0)
 
 def write_results(filename, results, data_type):
     if data_type == 'mot':
@@ -135,9 +166,9 @@ if __name__ == "__main__":
     args = parse_args()
     if args.video_path is None:
         print('Debugging...')
-        args.use_cuda = False
-        args.save_path = "valami.avi"
-        args.video_path = "/home/dobreff/work/Dipterv/MLSA20/data/ISSIA_SoccerDataset/Sequences/vendeg_elorol.avi"
+        args.use_cuda = "False"
+        args.save_path = "debug_wKF_kozep_elorol2.avi"
+        args.video_path = "/home/dobreff/work/Dipterv/MLSA20/data/ISSIA_SoccerDataset/Sequences/kozep_elorol.avi"
         with Detector(args) as det:
             det.detect()
     else:

@@ -48,6 +48,6 @@ class Extractor(object):
 if __name__ == '__main__':
     img = cv2.imread("demo.jpg")[:,:,(2,1,0)]
     extr = Extractor("checkpoint/ckpt.t7")
-    feature = extr(img)
+    feature = extr([img])
     print(feature.shape)
 

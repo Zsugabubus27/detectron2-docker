@@ -32,19 +32,45 @@ def draw_bbox(img, box, cls_name, identity=None, offset=(0,0)):
 
 def draw_bboxes(img, bbox, identities=None, offset=(0,0)):
     for i,box in enumerate(bbox):
-        x1,y1,x2,y2 = [int(i) for i in box]
+        x1,y1,x2,y2 = [int(coord) for coord in box]
         x1 += offset[0]
         x2 += offset[0]
         y1 += offset[1]
         y2 += offset[1]
         # box text and bar
-        id = int(identities[i]) if identities is not None else 0    
-        color = COLORS_10[id%len(COLORS_10)]
-        label = '{}{:d}'.format("", id)
-        t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
+        if identities[i] is None:
+            color = (0, 0, 0)
+        else:
+            id = int(identities[i]) if identities is not None else 0    
+            color = COLORS_10[id % len(COLORS_10)]
+            label = '{}{:d}'.format("", id)
+            t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
+            cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
+            cv2.putText(img,label,(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+        # draw BBox
         cv2.rectangle(img,(x1, y1),(x2,y2),color,3)
+    return img
+
+def draw_dead_bboxes(img, bbox, text=None):
+    for i,box in enumerate(bbox):
+        x1,y1,x2,y2 = [int(coord) for coord in box]
+        # box text and bar
+        label = text[i]
+        color = (255, 0, 0)
+        t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
         cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
         cv2.putText(img,label,(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+        # draw BBox
+        cv2.rectangle(img,(x1, y1),(x2,y2),color,3)
+    return img
+
+def draw_frameNum(img, coords, frameNum):
+    x1,y1 = [int(coord) for coord in coords]
+    label = str(frameNum)
+    color = (0, 0, 255)
+    t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
+    cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
+    cv2.putText(img,label,(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
     return img
 
 def softmax(x):

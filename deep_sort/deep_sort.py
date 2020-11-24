@@ -11,7 +11,7 @@ __all__ = ['DeepSort']
 
 
 class DeepSort(object):
-    def __init__(self, model_path, lambdaParam, max_dist=0.2, min_confidence=0.3, nms_max_overlap=1.0, max_iou_distance=0.7,
+    def __init__(self, model_path, lambdaParam, coordMapper, max_dist=0.2, min_confidence=0.3, nms_max_overlap=1.0, max_iou_distance=0.7,
                 max_age=70, n_init=3, nn_budget=100,  use_cuda=True):
         '''
             Parameters
@@ -38,13 +38,17 @@ class DeepSort(object):
         self.nms_max_overlap = nms_max_overlap
         self.lambdaParam = lambdaParam
 
+        # To map coordinates on image to coordinates in world
+        self.coordMapper = coordMapper
+
         # Appearance feature extractor CNN
         self.extractor = Extractor(model_path, use_cuda=use_cuda)
 
         max_cosine_distance = max_dist
         Lk = nn_budget
         metric = NearestNeighborDistanceMetric("cosine", max_cosine_distance, lambdaParam,Lk)
-        self.tracker = Tracker(metric, lambdaParam=lambdaParam, max_iou_distance=max_iou_distance, max_age=max_age, n_init=n_init)
+        self.tracker = Tracker(metric, lambdaParam=lambdaParam, max_iou_distance=max_iou_distance,
+                                 max_age=max_age, n_init=n_init, coordMapper=coordMapper)
         #self.tracker = Tracker(metric)
 
     def update(self, bbox_xywh, confidences, ori_img):
@@ -58,7 +62,10 @@ class DeepSort(object):
         # 3. Creates Detection object from detections AND filters only detections which detection confidence is higher than min_confidence
         features = self._get_features(bbox_xywh, ori_img)
         bbox_tlwh = self._xywh_to_tlwh(bbox_xywh)
-        detections = [Detection(bbox_tlwh[i], conf, features[i]) for i,conf in enumerate(confidences) if conf>self.min_confidence]
+        worldcoords_xy = self.coordMapper.image2xy([self._tlwh_to_footXY(tlwh) for tlwh in bbox_tlwh])
+        detections = [Detection(tlwh, conf, feat, worldXY) for tlwh, conf, feat, worldXY in 
+                        zip(bbox_tlwh, confidences, features, worldcoords_xy) if conf > self.min_confidence]
+        #detections = [Detection(bbox_tlwh[i], conf, features[i]) for i,conf in enumerate(confidences) if conf>self.min_confidence]
 
         # run on non-maximum supression
         # 1. Creates a list of the TopLeftWH coordinates of BBs
@@ -75,9 +82,15 @@ class DeepSort(object):
         self.tracker.update(detections)
 
         # output bbox identities
+        # TODO: Debug trackeket kivenni.
         outputs = []
+        deadtracks = []
         for track in self.tracker.tracks:
-            if not track.is_confirmed() or track.time_since_update > 1:
+            if not track.is_confirmed() or track.time_since_update >= 1:
+                box = track.to_tlwh()
+                x1,y1,x2,y2 = self._tlwh_to_xyxy(box)
+                track_id = str(track.track_id) + " " + str(track.time_since_update)
+                deadtracks.append([x1,y1,x2,y2,track_id])
                 continue
             box = track.to_tlwh()
             x1,y1,x2,y2 = self._tlwh_to_xyxy(box)
@@ -85,9 +98,7 @@ class DeepSort(object):
             outputs.append(np.array([x1,y1,x2,y2,track_id], dtype=np.int))
         if len(outputs) > 0:
             outputs = np.stack(outputs,axis=0)
-        return outputs
-
-
+        return outputs, deadtracks
     """
     TODO:
         Convert bbox from xc_yc_w_h to xtl_ytl_w_h
@@ -95,9 +106,10 @@ class DeepSort(object):
     """
     @staticmethod
     def _xywh_to_tlwh(bbox_xywh):
-        bbox_xywh[:,0] = bbox_xywh[:,0] - bbox_xywh[:,2]/2.
-        bbox_xywh[:,1] = bbox_xywh[:,1] - bbox_xywh[:,3]/2.
-        return bbox_xywh
+        _bbox_xywh = bbox_xywh.copy()
+        _bbox_xywh[:,0] = _bbox_xywh[:,0] - _bbox_xywh[:,2]/2.
+        _bbox_xywh[:,1] = _bbox_xywh[:,1] - _bbox_xywh[:,3]/2.
+        return _bbox_xywh
 
 
     def _xywh_to_xyxy(self, bbox_xywh):
@@ -110,6 +122,16 @@ class DeepSort(object):
         y1 = max(int(y-h/2),0)
         y2 = min(int(y+h/2),self.height-1)
         return x1,y1,x2,y2
+    
+    def _tlwh_to_footXY(self, bbox_tlwh):
+        '''
+        Convert BB coords from TopLeftWH to player's foot XY
+        '''
+        # TODO: Kell ide hogy int legyen?
+        x,y,w,h = bbox_tlwh
+        x_foot = x + w/2
+        y_foot = y + h
+        return x_foot, y_foot
 
     def _tlwh_to_xyxy(self, bbox_tlwh):
         """
