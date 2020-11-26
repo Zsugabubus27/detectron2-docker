@@ -1,6 +1,9 @@
 # Deep Sort with PyTorch 
 ### Detectron2 version of [DeepSORT PyTorch](https://github.com/ZQPei/deep_sort_pytorch)
 
+# Start Detectron Docker container
+docker run --gpus all -it --shm-size=8gb --env="DISPLAY" --volume=$HOME/.torch/fvcore_cache:/tmp:rw --name=detectron-docker detectron:latest
+python3 demo/demo.py --config-file configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml --input /tmp/sample_5k.bmp --output /tmp/outputs/ --opts MODEL.WEIGHTS detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl
 ### Demo
 1. Clone this repository: `git clone --recurse-submodules https://github.com/Zsugabubus27/detectron2-deepsort-pytorch.git`
 2. Install torch!
