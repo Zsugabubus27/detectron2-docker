@@ -235,15 +235,25 @@ class PlayerDetectorDetectron2():
 		# 1. Detektálom a framen a játékosokat
 		allInstances = self.getForegroundContours(frame)
 		
+		# TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		# Ide már a pred_boxes-ban lévő koordinátáknak a 1440x5120-es dimenzióban kell lenni, mert úgy van implementálva a class
+		# Itt már vissza kell őket mapolni
 		# 2. Kiszámolom a valós koordinátájukat
 		worldcoords_xy = self.coordMapper.image2xy([( (box[0] + box[2]) / 2, box[3]) for box in allInstances.pred_boxes.tensor])
+
+		# 3. Leszűröm a középen lévő játékosokat
+		maskWorldCoord = [ True if x is not None else False for x in worldcoords_xy]
+		allInstances.pred_boxes.tensor = allInstances.pred_boxes.tensor[maskWorldCoord]
+		allInstances.scores = allInstances.scores[maskWorldCoord]
+		allInstances.pred_classes = allInstances.pred_classes[maskWorldCoord]
+		worldcoords_xy = [x for x in worldcoords_xy if x is not None]
 
 		v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
 		v.draw_instance_predictions(allInstances)
 		for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
 			strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
 			v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
-		cv2.imwrite('/tmp/outputs/merged_wWorldCoord.jpg', v.get_output().get_image()[:, :, ::-1])
+		cv2.imwrite('/tmp/outputs/merged_wWorldCoord_masked.jpg', v.get_output().get_image()[:, :, ::-1])
 
 		# v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
 		# out = v.draw_instance_predictions(allInstances)

@@ -92,7 +92,7 @@ class CoordMapperCSG():
                 # Ha bal oldali kamera észlel jobb oldali játékost
                 if x_transf > self.pts_on_transformed[1][0]:
                     transformedPoints.append(None)
-                    print(x, y)
+                    # print(x, y)
                 else:
                     transformedPoints.append([x_transf, y_transf])
             else:
@@ -103,7 +103,7 @@ class CoordMapperCSG():
                 # Ha bal oldali kamera észlel jobb oldali játékost
                 if x_transf < self.pts_on_transformed[1][0]:
                     transformedPoints.append(None)
-                    print(x, y)
+                    # print(x, y)
                 else:
                     transformedPoints.append([x_transf, y_transf])
 
