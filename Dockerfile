@@ -3,7 +3,7 @@ FROM nvidia/cuda:10.1-cudnn7-devel
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y \
 	python3-opencv ca-certificates python3-dev git wget sudo  \
-	cmake ninja-build && \
+	cmake ninja-build nano && \
   rm -rf /var/lib/apt/lists/*
 RUN ln -sv /usr/bin/python3 /usr/bin/python
 
@@ -38,3 +38,5 @@ RUN pip install --user -e detectron2_repo
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"
 WORKDIR /home/appuser/detectron2_repo
+
+COPY /detection /home/appuser/detection
