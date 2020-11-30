@@ -21,8 +21,7 @@ print('Torch version:', torch.__version__, torch.cuda.is_available())
 
 
 class PlayerDetectorDetectron2():
-	def __init__(self, bg_history, leftSideCorners, rightSideCorners, 
-				coordMapper,
+	def __init__(self, leftSideCorners, rightSideCorners, coordMapper,
 				origResolution, outResolution, segnumx, segnumy, nmsThreshold):
 		
 		
@@ -47,12 +46,29 @@ class PlayerDetectorDetectron2():
 		self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(model_name)
 		self.predictor = DefaultPredictor(self.cfg)
 
+		# Hány cella legyen x (width) és y (height) irányba
+		# x irányba bal és jobb oldalt is segnumx darab cella lesz
+		self.segnumx = segnumx
+		self.segnumy = segnumy
+
+		# A rács celláinak oldalhosszai 
+		self.cell_width = (self.outResolution[0] // 2) // self.segnumx
+		self.cell_height = self.outResolution[1] // self.segnumy
+		
+		# Rács elkészítése
+		self.gridList = self._createGridCells()
+		print('grids', len(self.gridList))
+		
+		#A Kamerától vett távolság függvényében változtatom a score-t (yTL)
+		self.cameraDistWeight = reversed(np.unique(np.asarray(self.gridList)[:, 1]))
+		self.cameraDistWeight = {yCord : (100-idx) / 100 for idx, yCord in enumerate(self.cameraDistWeight)}
+
 		# TODO: Tesztelésképp csak y irányba kettévágom 2x x irányban is, 
 		# és egy átlapolódó rácsot is készitek 
 		# Grid = (xTL, yTL, xBR, yBR)
-		self.gridList = [(0, 0, 5120//2, 1440 // 2), (5120//2, 0, 5120, 1440 // 2),
-						(0, 1440 // 2, 5120//2, 1440), (5120//2, 1440 // 2, 5120, 1440),
-						(0, 1440 // 3, 5120//2, 2*1440 // 3), (5120//2, 1440 // 3, 5120, 2*1440 // 2)]
+		# self.gridList = [(0, 0, self.outResolution[0] //2, self.outResolution[1] // 2), (self.outResolution[0]//2, 0, self.outResolution[0], self.outResolution[1] // 2),
+		# 				(0, self.outResolution[1] // 2, self.outResolution[0]//2, self.outResolution[1]), (self.outResolution[0]//2, self.outResolution[1] // 2, self.outResolution[0], self.outResolution[1]),
+		# 				(0, self.outResolution[1] // 3, self.outResolution[0]//2, 2*self.outResolution[1] // 3), (self.outResolution[0]//2, self.outResolution[1] // 3, self.outResolution[0], 2*self.outResolution[1] // 2)]
 
 		# im1 = origImg[:1440 // 2, 5120//2 : 3 * 5120//4]
 		# im2 = origImg[:1440 // 2, 5120//4 : 2 * 5120//4]
@@ -68,28 +84,6 @@ class PlayerDetectorDetectron2():
 		# self.segmentation_x = self.outResolution[0] // self.segnumx
 		# self.segmentation_y = self.outResolution[1] // self.segnumy
 
-		# # Init Background subtractor list
-		# self.BGSubstractorList = {}
-		# # Bal felső sarokból indulva indítom a rácsot
-		# for x_cut in range(0, self.outResolution[0], self.segmentation_x):
-		# 	for y_cut in range(0, self.outResolution[1], self.segmentation_y):
-		# 		val_x = self.segmentation_x if x_cut + self.segmentation_x <= self.outResolution[0] else self.outResolution[0] - x_cut
-		# 		val_y = self.segmentation_y if y_cut + self.segmentation_y <= self.outResolution[1] else self.outResolution[1] - y_cut
-		# 		self.BGSubstractorList[(x_cut, y_cut)] = (cv2.createBackgroundSubtractorMOG2(history=bg_history), val_x, val_y)
-		# if not(self.segnumx == 2 and self.segnumy == 1):
-		# 	# X irányba eltolva indítom a rácsot
-		# 	for x_cut in range(int(self.segmentation_x / 2), self.outResolution[0], self.segmentation_x):
-		# 		for y_cut in range(0, self.outResolution[1], self.segmentation_y):
-		# 			val_x = self.segmentation_x if x_cut + self.segmentation_x <= self.outResolution[0] else self.outResolution[0] - x_cut
-		# 			val_y = self.segmentation_y if y_cut + self.segmentation_y <= self.outResolution[1] else self.outResolution[1] - y_cut
-		# 			self.BGSubstractorList[(x_cut, y_cut)] = (cv2.createBackgroundSubtractorMOG2(history=bg_history), val_x, val_y)
-
-		# 	# Y irányba eltolva indítom a rácsot
-		# 	for x_cut in range(0, self.outResolution[0], self.segmentation_x):
-		# 		for y_cut in range(int(self.segmentation_y / 2), self.outResolution[1], self.segmentation_y):
-		# 			val_x = self.segmentation_x if x_cut + self.segmentation_x <= self.outResolution[0] else self.outResolution[0] - x_cut
-		# 			val_y = self.segmentation_y if y_cut + self.segmentation_y <= self.outResolution[1] else self.outResolution[1] - y_cut
-		# 			self.BGSubstractorList[(x_cut, y_cut)] = (cv2.createBackgroundSubtractorMOG2(history=bg_history), val_x, val_y)
 
 		self.fieldPolygon = self._getFieldBoundary(leftSideCorners, rightSideCorners)
 	
@@ -178,9 +172,43 @@ class PlayerDetectorDetectron2():
 		# Grid = (xTL, yTL, xBR, yBR)
 		return [image[yTL : yBR, xTL : xBR] for xTL, yTL, xBR, yBR in self.gridList]
 
+	def _createGridCells(self):
+		# Grid = (xTL, yTL, xBR, yBR)
+		gridList = []
+		sideWidth = self.outResolution[0] // 2
+		# 1. Alaprács elkészítése
+		for xTL in range(0, self.outResolution[0], self.cell_width):
+			for yTL in range(0, self.outResolution[1], self.cell_height):
+				gridList.append((xTL, yTL, xTL + self.cell_width, yTL + self.cell_height))
+		# 2. Függőleges oldalak mentén bal és jobb oldalra is
+		for col in range(0, self.segnumx - 1):
+			for row in range(0, self.segnumy):
+				xTL = self.cell_width // 2 + col * self.cell_width
+				yTL = row * self.cell_height
+				gridList.append( (xTL, yTL, xTL + self.cell_width, yTL + self.cell_height) )
+				gridList.append( (xTL + sideWidth, yTL, 
+								xTL + self.cell_width + sideWidth, yTL + self.cell_height) )
 		
+		# 3. Vízszintes oldalak mentén bal és jobb oldalra is
+		for col in range(0, self.segnumx):
+			for row in range(0, self.segnumy - 1):
+				xTL = col * self.cell_width
+				yTL = (self.cell_height // 2) + row * self.cell_height
+				gridList.append( (xTL, yTL, xTL + self.cell_width, yTL + self.cell_height) )
+				gridList.append( (xTL + sideWidth, yTL, 
+								xTL + self.cell_width + sideWidth, yTL + self.cell_height) )
+		# 4. Metszéspontok mentén bal és jobb oldalra is
+		for col in range(0, self.segnumx - 1):
+			for row in range(0, self.segnumy - 1):
+				xTL = (self.cell_width // 2) + col * self.cell_width
+				yTL = (self.cell_height // 2) + row * self.cell_height
+				gridList.append( (xTL, yTL, xTL + self.cell_width, yTL + self.cell_height) )
+				gridList.append( (xTL + sideWidth, yTL, 
+								xTL + self.cell_width + sideWidth, yTL + self.cell_height) )
 
-	def getForegroundContours(self, image):
+		return gridList
+
+	def _detectAndMap(self, image):
 		'''
 		image: Frame amin a játékosokat akarjuk megtalálni
 		result: dict((x_cut, y_cut) -> counturList)
@@ -191,6 +219,10 @@ class PlayerDetectorDetectron2():
 		
 		# 1. Külön felvágom a képeket kis cellákra
 		l_cells = self._cutImageToGrids(frame)
+
+		# DEBUG
+		for idx, img in enumerate(l_cells):
+			cv2.imwrite(f'/tmp/outputs/c_{idx}.jpg', img)
 		
 		# 2. Majd ezeket a képeket beadom a multiple prediktálóba
 		l_preds = self._predictMultipleImages(l_cells)
@@ -198,14 +230,13 @@ class PlayerDetectorDetectron2():
 		# 2.1 Lista a cellákon található instancokról
 		l_preds = [x['instances'].to('cpu') for x in l_preds]
 		
-		# 2.2 Visszamappelem az eredeti képre & pred_masks nincs használva
+		# 2.2 Visszamappelem a bemeneti képre, majd felskálázom az 5K-s képre
 		# 2.3 A Kamerától vett távolság függvényében változtatom a score-t (yTL)
-		cameraDistWeight = reversed(np.unique(np.asarray(self.gridList)[:, 1]))
-		cameraDistWeight = {yCord : (100-idx) / 100 for idx, yCord in enumerate(cameraDistWeight)}
 		for inst, cell in zip(l_preds, self.gridList): 
-			inst.remove('pred_masks')
+			inst.remove('pred_masks') # pred_masks nincs használva TODO: TeamColor esetében lehet jól jön
 			inst.pred_boxes.tensor[:, 0:4] += torch.Tensor([cell[0], cell[1], cell[0], cell[1]])
-			inst.scores *= cameraDistWeight[cell[1]]
+			inst.pred_boxes.tensor = inst.pred_boxes.tensor.divide(self.trans_value).round()
+			inst.scores *= self.cameraDistWeight[cell[1]]
 		
 		# 2.4 Egész képre vonatkoztatott Instancok
 		# TODO: Hiányzik a resize!!!!!!
@@ -233,7 +264,7 @@ class PlayerDetectorDetectron2():
 	def detectPlayersOnFrame(self, frame):
 
 		# 1. Detektálom a framen a játékosokat
-		allInstances = self.getForegroundContours(frame)
+		allInstances = self._detectAndMap(frame)
 		
 		# TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		# Ide már a pred_boxes-ban lévő koordinátáknak a 1440x5120-es dimenzióban kell lenni, mert úgy van implementálva a class
@@ -248,82 +279,44 @@ class PlayerDetectorDetectron2():
 		allInstances.pred_classes = allInstances.pred_classes[maskWorldCoord]
 		worldcoords_xy = [x for x in worldcoords_xy if x is not None]
 
-		v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
+		v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
 		v.draw_instance_predictions(allInstances)
 		for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
 			strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
 			v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
-		cv2.imwrite('/tmp/outputs/merged_wWorldCoord_masked.jpg', v.get_output().get_image()[:, :, ::-1])
+		cv2.imwrite('/tmp/outputs/input_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
+
+		bacToOriginal = cv2.resize(frame, self.origResolution, interpolation = cv2.INTER_AREA)
+		v = Visualizer(bacToOriginal[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
+		v.draw_instance_predictions(allInstances)
+		for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
+			strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
+			v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
+		cv2.imwrite('/tmp/outputs/original_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
 
 		# v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
 		# out = v.draw_instance_predictions(allInstances)
 		# cv2.imwrite('/tmp/outputs/merged.jpg', out.get_image()[:, :, ::-1])
 
+if __name__ == '__main__':
+	origRes = (2560, 1440)
+	outRes = (2560, 1440) #  ["(2560, 1440)", "(2048, 1152)", "(1920, 1080)", "(1536, 864)", "(1280, 720)"] 
+	
+	left_side_corner_pixels =  [[1264.7023,499.5309],[1870.1519,549.1178 ],[2517.0312,1275.4386 ],[ 192.16057,548.8432 ]]
+	right_side_corner_pixels = [[755.81616,474.7149],[1361.8402,456.584],[2482.6863,568.66864],[257.55048,1084.8362]]
+	full_width = origRes[0]*2
+	right_side_corner_pixels_added_half_field = np.array([[p[0] + full_width/2, p[1]] for p in right_side_corner_pixels])
 
-		# for idx, (img, pred) in enumerate(l_results):
-		# 	v = Visualizer(img[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
-		# 	out = v.draw_instance_predictions(pred["instances"].to("cpu"))
-		# 	cv2.imwrite(f'/tmp/outputs/{idx}.jpg', out.get_image()[:, :, ::-1])
+	# CoordMapper a pálya széleivel inicializálva
+	coordMapper = coord_mapper.CoordMapperCSG(match_code=(left_side_corner_pixels, right_side_corner_pixels))
 
-		# l_results = self.getForegroundContours(frame)
-		# for idx, (img, pred) in enumerate(l_results):
-		# 	v = Visualizer(img[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
-		# 	out = v.draw_instance_predictions(pred["instances"].to("cpu"))
-		# 	cv2.imwrite(f'/tmp/outputs/{idx}.jpg', out.get_image()[:, :, ::-1])
-			#cv2_imshow(out.get_image()[:, :, ::-1])
+	myDetector = PlayerDetectorDetectron2(leftSideCorners=left_side_corner_pixels, 
+											rightSideCorners=right_side_corner_pixels_added_half_field, 
+											coordMapper=coordMapper, origResolution=origRes, 
+											outResolution=outRes, segnumx=2, segnumy=2, nmsThreshold=0.5)
 
-		# # (x_cut, y_cut) -> contours
-		# contoursDict = self.getForegroundContours(frame)
-
-		# detectedPlayers = []
-		# # LOOP ONE EACH CELL's each CONTOUR
-		# for (x_cut, y_cut), contours in contoursDict.items():
-			
-		# 	# LOOP Through every contour of the given cell
-		# 	for cnt in contours:
-				
-		# 		# x, y, w, h: A resizelt kép kis cellájára vonatkoznak ezek az értékek
-		# 		x_cell, y_cell, w_cell, h_cell = cv2.boundingRect(cnt)
-
-		# 		# Visszamappelem az eredeti képre (cellák és resize leküzdése)
-		# 		x, y = (x_cell + x_cut) // self.trans_value, (y_cell + y_cut) //  self.trans_value 
-		# 		w, h = (w_cell // self.trans_value), (h_cell // self.trans_value)
-
-		# 		# Validate the minimum dimensional requirements
-		# 		if w > self.min_width_of_human_in_pixel and h > self.min_height_of_human_in_pixel and h > w:
-		# 			centerPoint = [x+(w/2), y+(h/2)] # Center point az eredeti képen
-		# 			max_w, min_w = self.validatorFunction(centerPoint)
-					
-		# 			if w > min_w and w < max_w:
-		# 				# Átmappelem csak a nagy képre, DE nem skálázom vissza az eredeti képre
-		# 				team = self._getTeamColor(frame, (x_cell + x_cut, y_cell + y_cut, w_cell, h_cell))
-
-		# 				detectedPlayers.append( {'x':int(x), 'y': int(y), 'w' : int(w), 'h' : int(h), 'color' : team} )
-		
-		# # Leszűröm az átlapolódó játékosokat (top left x,y,w,h) a bemenete
-		# _, mask_nms = nms.nms([(p['x'], p['y'], p['w'], p['h']) for p in detectedPlayers ], threshold=0.7)
-		# detectedPlayers = [p for p, b in zip(detectedPlayers, mask_nms) if b]
-		
-		# # Kiszámolom az összes detektált játékosra a világkoordinátában lévő pontjaikat
-		# worldcoords_xy = self.coordMapper.image2xy([(p['x'] + (p['w'] / 2), p['y'] + p['h']) for p in detectedPlayers])
-		# for p, wcoords in zip(detectedPlayers, worldcoords_xy):
-		# 	p.update({'x_world' : wcoords[0], 'y_world' : wcoords[1]})
-
-		# return detectedPlayers
-
-left_side_corner_pixels =  [[1264.7023,499.5309],[1870.1519,549.1178 ],[2517.0312,1275.4386 ],[ 192.16057,548.8432 ]]
-right_side_corner_pixels = [[755.81616,474.7149],[1361.8402,456.584],[2482.6863,568.66864],[257.55048,1084.8362]]
-full_width = (2560, 1440)[0]*2
-right_side_corner_pixels_added_half_field = np.array([[p[0] + full_width/2, p[1]] for p in right_side_corner_pixels])
-
-# CoordMapper a pálya széleivel inicializálva
-coordMapper = coord_mapper.CoordMapperCSG(match_code=(left_side_corner_pixels, right_side_corner_pixels))
-
-
-myDetector = PlayerDetectorDetectron2(0, left_side_corner_pixels, right_side_corner_pixels_added_half_field, 
-								coordMapper, (2560, 1440), (2560, 1440), 0, 0, 0.5)
-
-myFrame = cv2.imread("/tmp/sample_5k.bmp")
-
-myDetector.detectPlayersOnFrame(myFrame)
-print('done')
+	myFrame = cv2.imread("/tmp/sample_5k.bmp")
+	# Ez már a konkatenált kép, ezért 2x-es a szélessége
+	myFrame = cv2.resize(myFrame, (outRes[0]*2, outRes[1]), interpolation = cv2.INTER_AREA)
+	myDetector.detectPlayersOnFrame(myFrame)
+	print('done')
