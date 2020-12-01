@@ -21,6 +21,7 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
 
 # install dependencies
 # See https://pytorch.org/ for other options if you use a different version of CUDA
+RUN pip install --user Flask
 RUN pip install --user tensorboard
 RUN pip install --user torch==1.7 torchvision==0.8.1 -f https://download.pytorch.org/whl/cu101/torch_stable.html
 
@@ -37,6 +38,11 @@ RUN pip install --user -e detectron2_repo
 
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"
-WORKDIR /home/appuser/detectron2_repo
 
-COPY /detection /home/appuser/detection
+COPY . /home/appuser/
+
+WORKDIR /home/appuser/
+
+
+ENTRYPOINT ["python3"]
+CMD ["main.py"]

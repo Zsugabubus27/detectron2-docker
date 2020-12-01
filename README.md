@@ -8,6 +8,8 @@ docker run --gpus all -it --shm-size=8gb --env="DISPLAY" --volume=$HOME/.torch/f
 
 docker run --gpus all -it --shm-size=8gb --env="DISPLAY" --volume=$HOME/.torch/fvcore_cache:/tmp:rw detectron:latest python3 /home/appuser/detection/detection.py
 
+docker run --gpus all -it --shm-size=8gb --env="DISPLAY" --volume=$HOME/.torch/fvcore_cache:/tmp:rw -p 5555:5555 detectron:latest
+
 python3 demo/demo.py --config-file configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml --input /tmp/sample_5k.bmp --output /tmp/outputs/ --opts MODEL.WEIGHTS detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl
 ### Demo
 1. Clone this repository: `git clone --recurse-submodules https://github.com/Zsugabubus27/detectron2-deepsort-pytorch.git`

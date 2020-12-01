@@ -235,29 +235,24 @@ class PlayerDetectorDetectron2():
 		for inst, cell in zip(l_preds, self.gridList): 
 			inst.remove('pred_masks') # pred_masks nincs használva TODO: TeamColor esetében lehet jól jön
 			inst.pred_boxes.tensor[:, 0:4] += torch.Tensor([cell[0], cell[1], cell[0], cell[1]])
-			inst.pred_boxes.tensor = inst.pred_boxes.tensor.divide(self.trans_value).round()
+			inst.boxes_before = inst.pred_boxes.clone() # Eredeti képen skálázás nélkül hol vannak
+			inst.pred_boxes.tensor = inst.pred_boxes.tensor.divide(self.trans_value)
 			inst.scores *= self.cameraDistWeight[cell[1]]
 		
 		# 2.4 Egész képre vonatkoztatott Instancok
-		# TODO: Hiányzik a resize!!!!!!
-		# TODO: Most akkor itt origResolution??? scalelés hol történjen???
 		finalInstances = Instances(image_size=self.origResolution[::-1]) # (1440, 5120)
 		finalInstances.pred_boxes = Boxes.cat([x.pred_boxes for x in l_preds])
+		finalInstances.boxes_before = Boxes.cat([x.boxes_before for x in l_preds])
 		finalInstances.scores = torch.cat([x.scores for x in l_preds])
 		finalInstances.pred_classes = torch.cat([x.pred_classes for x in l_preds])
 
 		# 3. Leszűröm az emberekre csak
 		_person_class_ID = 0
-		finalInstances.pred_boxes.tensor = finalInstances.pred_boxes.tensor[finalInstances.pred_classes == _person_class_ID]
-		finalInstances.scores = finalInstances.scores[finalInstances.pred_classes == _person_class_ID]
-		finalInstances.pred_classes = finalInstances.pred_classes[finalInstances.pred_classes == _person_class_ID]
+		finalInstances = finalInstances[finalInstances.pred_classes == _person_class_ID]
 		
 		# 4. NMS használata, hogy kiiktassam az átlapolódásokat
 		iouIdx = torchvision.ops.nms(finalInstances.pred_boxes.tensor, finalInstances.scores, self.nmsThreshold)
-		finalInstances.pred_boxes.tensor = finalInstances.pred_boxes.tensor[iouIdx]
-		finalInstances.scores = finalInstances.scores[iouIdx]
-		finalInstances.pred_classes = finalInstances.pred_classes[iouIdx]
-		
+		finalInstances = finalInstances[iouIdx]
 		
 		return finalInstances
 	
@@ -266,19 +261,16 @@ class PlayerDetectorDetectron2():
 		# 1. Detektálom a framen a játékosokat
 		allInstances = self._detectAndMap(frame)
 		
-		# TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		# Ide már a pred_boxes-ban lévő koordinátáknak a 1440x5120-es dimenzióban kell lenni, mert úgy van implementálva a class
-		# Itt már vissza kell őket mapolni
 		# 2. Kiszámolom a valós koordinátájukat
 		worldcoords_xy = self.coordMapper.image2xy([( (box[0] + box[2]) / 2, box[3]) for box in allInstances.pred_boxes.tensor])
 
 		# 3. Leszűröm a középen lévő játékosokat
 		maskWorldCoord = [ True if x is not None else False for x in worldcoords_xy]
-		allInstances.pred_boxes.tensor = allInstances.pred_boxes.tensor[maskWorldCoord]
-		allInstances.scores = allInstances.scores[maskWorldCoord]
-		allInstances.pred_classes = allInstances.pred_classes[maskWorldCoord]
+		allInstances = allInstances[maskWorldCoord]
 		worldcoords_xy = [x for x in worldcoords_xy if x is not None]
 
+		# Kicsi, bemeneti képen a boxok plotolása
 		v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
 		v.draw_instance_predictions(allInstances)
 		for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
@@ -293,14 +285,17 @@ class PlayerDetectorDetectron2():
 			strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
 			v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
 		cv2.imwrite('/tmp/outputs/original_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
+		
+		# Detekciók kis képeinek kivágása
+		for idx, box in enumerate(allInstances.boxes_before.tensor.round().numpy()):
+			xTL, yTL = np.floor(box[0:2]).astype(int)
+			xBR, yBR = np.ceil(box[2:4]).astype(int)
+			cv2.imwrite(f'/tmp/outputs/box_{idx}.jpg', frame[yTL : yBR, xTL : xBR])
 
-		# v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
-		# out = v.draw_instance_predictions(allInstances)
-		# cv2.imwrite('/tmp/outputs/merged.jpg', out.get_image()[:, :, ::-1])
 
 if __name__ == '__main__':
 	origRes = (2560, 1440)
-	outRes = (2560, 1440) #  ["(2560, 1440)", "(2048, 1152)", "(1920, 1080)", "(1536, 864)", "(1280, 720)"] 
+	outRes = (1920, 1080) #  ["(2560, 1440)", "(2048, 1152)", "(1920, 1080)", "(1536, 864)", "(1280, 720)"] 
 	
 	left_side_corner_pixels =  [[1264.7023,499.5309],[1870.1519,549.1178 ],[2517.0312,1275.4386 ],[ 192.16057,548.8432 ]]
 	right_side_corner_pixels = [[755.81616,474.7149],[1361.8402,456.584],[2482.6863,568.66864],[257.55048,1084.8362]]
@@ -318,5 +313,11 @@ if __name__ == '__main__':
 	myFrame = cv2.imread("/tmp/sample_5k.bmp")
 	# Ez már a konkatenált kép, ezért 2x-es a szélessége
 	myFrame = cv2.resize(myFrame, (outRes[0]*2, outRes[1]), interpolation = cv2.INTER_AREA)
+	myDetector.detectPlayersOnFrame(myFrame)
+	print('done')
+	myDetector.detectPlayersOnFrame(myFrame)
+	print('done')
+	myDetector.detectPlayersOnFrame(myFrame)
+	print('done')
 	myDetector.detectPlayersOnFrame(myFrame)
 	print('done')
