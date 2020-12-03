@@ -23,9 +23,9 @@ class DetectionImageSender(imagezmq.ImageSender):
         return hub_reply
 
 
-myFrame1 = cv2.imread("/home/dobreff/videos/samples/1027_14_25_53_first.bmp")
+# myFrame1 = cv2.imread("/home/dobreff/videos/samples/1027_14_25_53_first.bmp")
 # myFrame2 = cv2.imread("/home/dobreff/videos/samples/1026_05_46_59_first.bmp")
-# myFrame3 = cv2.imread("/home/dobreff/videos/samples/1022_07_51_42_first.bmp")
+myFrame3 = cv2.imread("/home/dobreff/videos/samples/1022_07_51_42_first.bmp")
 
 sender = DetectionImageSender(connect_to='tcp://localhost:5556')
-print(sender.send_image('Ekkoo', myFrame1))
+print(sender.send_image('Ekkoo', myFrame3))

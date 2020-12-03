@@ -26,6 +26,5 @@ myDetector = PlayerDetectorDetectron2(leftSideCorners=left_side_corner_pixels,
 image_hub = imagezmq.ImageHub(open_port='tcp://*:5555')
 while True: 
 	rpi_name, image = image_hub.recv_image()
-	myDetector.detectPlayersOnFrame(image)
-	testData = {'Szoszi' : rpi_name, 'ka' : 10, 'qwe' : np.asarray([[1, 2, 3], [4, 5, 6]])}
-	image_hub.zmq_socket.send_pyobj(testData)
+	list_detections = myDetector.detectPlayersOnFrame(image)
+	image_hub.zmq_socket.send_pyobj(list_detections)

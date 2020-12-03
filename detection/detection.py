@@ -56,7 +56,9 @@ class PlayerDetectorDetectron2():
 		self.cell_height = self.outResolution[1] // self.segnumy
 		
 		# Rács elkészítése
-		self.gridList = self._createGridCells()
+		# Grid = (xTL, yTL, xBR, yBR)
+		#self.gridList = self._createGridCells()
+		self.gridList = [[222, 454, 2153, 787], [465, 633, 4825, 1439], [3117, 427, 5119, 800]]
 		print('grids', len(self.gridList))
 		
 		#A Kamerától vett távolság függvényében változtatom a score-t (yTL)
@@ -68,17 +70,17 @@ class PlayerDetectorDetectron2():
 	
 	def _getFieldBoundary(self, left_side_corner_pixels, right_side_corner_pixels_added_half_field):
 		# Azok azért vannak, hogy aki a pálya szélén fut a szélső oldalvonalnál, kell egy kis overhead, mert ha a lába van a vonalnál, a feje már nem fér bele, sőt, a dereka sem ~ Marci)
-		[[223,457],[1261,474],[1914,522],[2560,863],[3305,437],[3937,435],[5119,468],
-		[5119,546],[2560,1328],[2560,1439],[2486,1439],[223,553]]
-		
-		merged_arr = [[left_side_corner_pixels[0][0],left_side_corner_pixels[0][1]-25],
-				[left_side_corner_pixels[1][0],left_side_corner_pixels[1][1]-25],
-				[right_side_corner_pixels_added_half_field[0][0],right_side_corner_pixels_added_half_field[0][1]-25],
-				[right_side_corner_pixels_added_half_field[1][0],right_side_corner_pixels_added_half_field[1][1]-25],
-				[right_side_corner_pixels_added_half_field[2][0],right_side_corner_pixels_added_half_field[2][1]],
-				right_side_corner_pixels_added_half_field[3],
-				left_side_corner_pixels[2],
-				left_side_corner_pixels[3]]
+		merged_arr = [[223,457],[1261,474],[1914,522],[2560,863],[3305,437],[3937,435],[5119,468],
+					[5119,546],[2560,1328],[2560,1439],[2486,1439],[223,553]]
+
+		# merged_arr = [[left_side_corner_pixels[0][0],left_side_corner_pixels[0][1]-25],
+		# 		[left_side_corner_pixels[1][0],left_side_corner_pixels[1][1]-25],
+		# 		[right_side_corner_pixels_added_half_field[0][0],right_side_corner_pixels_added_half_field[0][1]-25],
+		# 		[right_side_corner_pixels_added_half_field[1][0],right_side_corner_pixels_added_half_field[1][1]-25],
+		# 		[right_side_corner_pixels_added_half_field[2][0],right_side_corner_pixels_added_half_field[2][1]],
+		# 		right_side_corner_pixels_added_half_field[3],
+		# 		left_side_corner_pixels[2],
+		# 		left_side_corner_pixels[3]]
 		
 		merged_arr = np.array(merged_arr) * (float(self.outResolution[0]) / self.origResolution[0]) # outResolution
 
@@ -236,12 +238,12 @@ class PlayerDetectorDetectron2():
 		iouIdx = torchvision.ops.nms(finalInstances.pred_boxes.tensor, finalInstances.scores, self.nmsThreshold)
 		finalInstances = finalInstances[iouIdx]
 		
-		return finalInstances
+		return finalInstances, frame
 	
 	def detectPlayersOnFrame(self, frame):
 
 		# 1. Detektálom a framen a játékosokat
-		allInstances = self._detectAndMap(frame)
+		allInstances, frame = self._detectAndMap(frame)
 		
 		# Ide már a pred_boxes-ban lévő koordinátáknak a 1440x5120-es dimenzióban kell lenni, mert úgy van implementálva a class
 		# 2. Kiszámolom a valós koordinátájukat
@@ -252,27 +254,40 @@ class PlayerDetectorDetectron2():
 		allInstances = allInstances[maskWorldCoord]
 		worldcoords_xy = [x for x in worldcoords_xy if x is not None]
 
-		# Kicsi, bemeneti képen a boxok plotolása
-		v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
-		v.draw_instance_predictions(allInstances)
-		for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
-			strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
-			v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
-		cv2.imwrite('/tmp/outputs/input_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
+		# # Kicsi, bemeneti képen a boxok plotolása
+		# v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
+		# v.draw_instance_predictions(allInstances)
+		# for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
+		# 	strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
+		# 	v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
+		# cv2.imwrite('/tmp/outputs/input_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
 
-		bacToOriginal = cv2.resize(frame, self.origResolution, interpolation = cv2.INTER_AREA)
-		v = Visualizer(bacToOriginal[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
-		v.draw_instance_predictions(allInstances)
-		for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
-			strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
-			v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
-		cv2.imwrite('/tmp/outputs/original_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
+		# bacToOriginal = cv2.resize(frame, self.origResolution, interpolation = cv2.INTER_AREA)
+		# v = Visualizer(bacToOriginal[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
+		# v.draw_instance_predictions(allInstances)
+		# for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
+		# 	strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
+		# 	v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
+		# cv2.imwrite('/tmp/outputs/original_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
 		
-		# Detekciók kis képeinek kivágása
-		for idx, box in enumerate(allInstances.boxes_before.tensor.round().numpy()):
-			xTL, yTL = np.floor(box[0:2]).astype(int)
-			xBR, yBR = np.ceil(box[2:4]).astype(int)
-			cv2.imwrite(f'/tmp/outputs/box_{idx}.jpg', frame[yTL : yBR, xTL : xBR])
+		# # Detekciók kis képeinek kivágása
+		# for idx, box in enumerate(allInstances.boxes_before.tensor.round().numpy()):
+		# 	xTL, yTL = np.floor(box[0:2]).astype(int)
+		# 	xBR, yBR = np.ceil(box[2:4]).astype(int)
+		# 	cv2.imwrite(f'/tmp/outputs/box_{idx}.jpg', frame[yTL : yBR, xTL : xBR])
+
+
+		list_result = []
+		for bigBox, smallBox, score, worldXY in zip(allInstances.pred_boxes.tensor.numpy(), 
+												allInstances.boxes_before.tensor.numpy(),
+												allInstances.scores.numpy(), 
+												worldcoords_xy):
+			(xTL, yTL), (xBR, yBR)  = np.floor(smallBox[0:2]).astype(int), np.ceil(smallBox[2:4]).astype(int)
+			clipped_img = frame[yTL : yBR, xTL : xBR]
+			list_result.append( {'worldXY' : worldXY, 'box' : smallBox, 
+								'bigBox' : bigBox, 'score' : score, 'image' : clipped_img} )
+		
+		return list_result
 
 
 if __name__ == '__main__':
