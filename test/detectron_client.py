@@ -1,21 +1,19 @@
 from threading import Thread, Event
-from queue import Queue
-import requests
+from utils import DetectionImageSender
+import time
 
 class DetectronClient():
 	class ClientState():
 		Stopped = 0
 		Started = 1
 
-	def __init__(self, address, queue, name, delay):
+	def __init__(self, address, input_queue, output_queue):
 		self.clientThread = Thread(target=self.senderFunc, args=(), daemon=True)
 		self.address = address
+		self.sender = DetectionImageSender(connect_to=f'tcp://{self.address}')
 		self.state = self.ClientState.Stopped
-		self.name = name
-		self.Q = queue
-		# DEBUG
-		self.delay = delay
-		self.address = f'http://slowwly.robertomurray.co.uk/delay/{delay}/url/https://vanenet.hu/'
+		self.Q_in = input_queue
+		self.Q_out = output_queue
 
 	def start(self):
 		if self.state != self.ClientState.Stopped:
@@ -28,13 +26,14 @@ class DetectronClient():
 		while True:
 			# Folyton kiszedek a Sorból egy képet és elküldöm a Detectron konténernek
 			# Ensure the queue is not empty
-			if not self.Q.empty():
-				item = self.Q.get()
-				resp = requests.get(self.address)
-				print(f'Item {item} processed by {self.name}')
+			if not self.Q_in.empty():
+				item = self.Q_in.get()
+				list_result = self.sender.send_image(item['idx'], item['image'])
+				self.Q_out.put((item['idx'], item['image'], list_result))
+				print(f'Item {item["idx"]} processed by {self.address}')
 			else:
-				print('Queue empty, waiting...', self.name)
-				time.sleep(0.5)
+				print('Input queue empty, waiting...', self.address)
+				time.sleep(1)
 				
 			if self.state == self.ClientState.Stopped:
 				break
