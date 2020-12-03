@@ -63,32 +63,14 @@ class PlayerDetectorDetectron2():
 		self.cameraDistWeight = reversed(np.unique(np.asarray(self.gridList)[:, 1]))
 		self.cameraDistWeight = {yCord : (100-idx) / 100 for idx, yCord in enumerate(self.cameraDistWeight)}
 
-		# TODO: Tesztelésképp csak y irányba kettévágom 2x x irányban is, 
-		# és egy átlapolódó rácsot is készitek 
-		# Grid = (xTL, yTL, xBR, yBR)
-		# self.gridList = [(0, 0, self.outResolution[0] //2, self.outResolution[1] // 2), (self.outResolution[0]//2, 0, self.outResolution[0], self.outResolution[1] // 2),
-		# 				(0, self.outResolution[1] // 2, self.outResolution[0]//2, self.outResolution[1]), (self.outResolution[0]//2, self.outResolution[1] // 2, self.outResolution[0], self.outResolution[1]),
-		# 				(0, self.outResolution[1] // 3, self.outResolution[0]//2, 2*self.outResolution[1] // 3), (self.outResolution[0]//2, self.outResolution[1] // 3, self.outResolution[0], 2*self.outResolution[1] // 2)]
-
-		# im1 = origImg[:1440 // 2, 5120//2 : 3 * 5120//4]
-		# im2 = origImg[:1440 // 2, 5120//4 : 2 * 5120//4]
-		# im3 = origImg[1440 // 2:, 5120//2 : 3 * 5120//4]
-		# im4 = origImg[1440 // 2:, 5120//4 : 2 * 5120//4]
-		# cv2_imshow(im4)
-
-		# # hány background modellt készítsünk x és y irányban
-		# self.segnumx = segnumx
-		# self.segnumy = segnumy
-
-		# # A rács celláinak oldalhosszai 
-		# self.segmentation_x = self.outResolution[0] // self.segnumx
-		# self.segmentation_y = self.outResolution[1] // self.segnumy
-
 
 		self.fieldPolygon = self._getFieldBoundary(leftSideCorners, rightSideCorners)
 	
 	def _getFieldBoundary(self, left_side_corner_pixels, right_side_corner_pixels_added_half_field):
 		# Azok azért vannak, hogy aki a pálya szélén fut a szélső oldalvonalnál, kell egy kis overhead, mert ha a lába van a vonalnál, a feje már nem fér bele, sőt, a dereka sem ~ Marci)
+		[[223,457],[1261,474],[1914,522],[2560,863],[3305,437],[3937,435],[5119,468],
+		[5119,546],[2560,1328],[2560,1439],[2486,1439],[223,553]]
+		
 		merged_arr = [[left_side_corner_pixels[0][0],left_side_corner_pixels[0][1]-25],
 				[left_side_corner_pixels[1][0],left_side_corner_pixels[1][1]-25],
 				[right_side_corner_pixels_added_half_field[0][0],right_side_corner_pixels_added_half_field[0][1]-25],
