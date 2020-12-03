@@ -15,7 +15,7 @@ from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog
-from detectron2.structures import Boxes, Instances, pairwise_iou
+from detectron2.structures import Boxes, Instances, pairwise_iou, pairwise_ioa
 
 print('Torch version:', torch.__version__, torch.cuda.is_available())
 
@@ -55,10 +55,7 @@ class PlayerDetectorDetectron2():
 		
 		# Rács elkészítése
 		# Grid = (xTL, yTL, xBR, yBR)
-		#self.gridList = self._createGridCells()
-		#self.gridList = [[222, 454, 2153, 787], [465, 633, 4825, 1439], [3117, 427, 5119, 800]]
-		#self.gridList = [[220, 453, 1466, 666], [1408, 433, 3739, 750], [3691, 431, 5119, 738], [421, 600, 4569, 1439]]
-		self.gridList = [[221, 470, 2029, 655], [356, 575, 2560, 1439], [2560, 502, 5117, 1330], [3224, 434, 4613, 559]]
+		self.gridList = self._createGridCells()
 		print('grids', len(self.gridList))
 		
 		#A Kamerától vett távolság függvényében változtatom a score-t (yTL)
@@ -73,14 +70,6 @@ class PlayerDetectorDetectron2():
 		merged_arr = [[223,457],[1261,474],[1914,522],[2560,863],[3305,437],[3937,435],[5119,468],
 					[5119,546],[2560,1328],[2560,1439],[2486,1439],[223,553]]
 
-		# merged_arr = [[left_side_corner_pixels[0][0],left_side_corner_pixels[0][1]-25],
-		# 		[left_side_corner_pixels[1][0],left_side_corner_pixels[1][1]-25],
-		# 		[right_side_corner_pixels_added_half_field[0][0],right_side_corner_pixels_added_half_field[0][1]-25],
-		# 		[right_side_corner_pixels_added_half_field[1][0],right_side_corner_pixels_added_half_field[1][1]-25],
-		# 		[right_side_corner_pixels_added_half_field[2][0],right_side_corner_pixels_added_half_field[2][1]],
-		# 		right_side_corner_pixels_added_half_field[3],
-		# 		left_side_corner_pixels[2],
-		# 		left_side_corner_pixels[3]]
 		
 		merged_arr = np.array(merged_arr) * (float(self.outResolution[0]) / self.origResolution[0]) # outResolution
 
@@ -156,39 +145,33 @@ class PlayerDetectorDetectron2():
 
 	def _createGridCells(self):
 		# Grid = (xTL, yTL, xBR, yBR)
-		gridList = []
-		sideWidth = self.outResolution[0] // 2
-		# 1. Alaprács elkészítése
-		for xTL in range(0, self.outResolution[0], self.cell_width):
-			for yTL in range(0, self.outResolution[1], self.cell_height):
-				gridList.append((xTL, yTL, xTL + self.cell_width, yTL + self.cell_height))
-		# 2. Függőleges oldalak mentén bal és jobb oldalra is
-		for col in range(0, self.segnumx - 1):
-			for row in range(0, self.segnumy):
-				xTL = self.cell_width // 2 + col * self.cell_width
-				yTL = row * self.cell_height
-				gridList.append( (xTL, yTL, xTL + self.cell_width, yTL + self.cell_height) )
-				gridList.append( (xTL + sideWidth, yTL, 
-								xTL + self.cell_width + sideWidth, yTL + self.cell_height) )
+		#self.gridList = [[222, 454, 2153, 787], [465, 633, 4825, 1439], [3117, 427, 5119, 800]]
+		#self.gridList = [[220, 453, 1466, 666], [1408, 433, 3739, 750], [3691, 431, 5119, 738], [421, 600, 4569, 1439]]
+		#self.gridList = [[221, 470, 2029, 655], [356, 575, 2560, 1439], [2560, 502, 5117, 1330], [3224, 434, 4613, 559]]
+		grids = [[221, 470, 2029, 655], [356, 575, 2560, 1439], [2560, 502, 5117, 1330], [3224, 434, 4613, 559]]
+		grids = np.array(grids) * (float(self.outResolution[0]) / self.origResolution[0]) # outResolution
+		return grids
+	
+	def _filterHalfMan(self, instances):
+		ioaMx = pairwise_ioa(instances.pred_boxes, instances.pred_boxes).numpy()
+		np.fill_diagonal(ioaMx, 0)
+		smallBoxIdx = np.max(ioaMx, axis=0)
+		smallBoxIdx = np.where(smallBoxIdx > 0.8)[0]
 		
-		# 3. Vízszintes oldalak mentén bal és jobb oldalra is
-		for col in range(0, self.segnumx):
-			for row in range(0, self.segnumy - 1):
-				xTL = col * self.cell_width
-				yTL = (self.cell_height // 2) + row * self.cell_height
-				gridList.append( (xTL, yTL, xTL + self.cell_width, yTL + self.cell_height) )
-				gridList.append( (xTL + sideWidth, yTL, 
-								xTL + self.cell_width + sideWidth, yTL + self.cell_height) )
-		# 4. Metszéspontok mentén bal és jobb oldalra is
-		for col in range(0, self.segnumx - 1):
-			for row in range(0, self.segnumy - 1):
-				xTL = (self.cell_width // 2) + col * self.cell_width
-				yTL = (self.cell_height // 2) + row * self.cell_height
-				gridList.append( (xTL, yTL, xTL + self.cell_width, yTL + self.cell_height) )
-				gridList.append( (xTL + sideWidth, yTL, 
-								xTL + self.cell_width + sideWidth, yTL + self.cell_height) )
+		# A logika az az, hogy ha a kis BBox részhalmaza egy másik BBoxnak ÉS cellahatáron van akkor az tuti hogy félembert jelent
+		# Ezt úgy ellenőrzöm, hogy ha a kis BBox középpontja legalább 2 cellában benne van akkor félembert jelez
+		# Mivel a cellákat úgy alakítottam ki, hogy a metszetükben egy egész ember tuti elférjen még
+		
+		idxToDrop = []
+		for i in smallBoxIdx:
+			xTL, yTL, xBR, yBR = instances.pred_boxes.tensor[i].numpy()
+			numOfCells = np.sum((self.gridList[:, 0] <= xTL) & (self.gridList[:, 1] <= yTL) & 
+								(self.gridList[:, 2] >= xBR) & (self.gridList[:, 3] >= yBR))
+			if numOfCells > 1:
+				idxToDrop.append(i)
+		idxToDrop = [False if idx in idxToDrop else True for idx in range(len(instances))]
 
-		return gridList
+		return instances[idxToDrop]
 
 	def _detectAndMap(self, image):
 		'''
@@ -202,11 +185,6 @@ class PlayerDetectorDetectron2():
 
 		# 1. Külön felvágom a képeket kis cellákra
 		l_cells = self._cutImageToGrids(frame)
-
-
-		# TODO: DEBUG
-		# for idx, img in enumerate(l_cells):
-		# 	cv2.imwrite(f'/tmp/outputs/c_{idx}.jpg', img)
 
 		# 2. Majd ezeket a képeket beadom a multiple prediktálóba
 		l_preds = self._predictMultipleImages(l_cells)
@@ -239,6 +217,9 @@ class PlayerDetectorDetectron2():
 		# 4. NMS használata, hogy kiiktassam az átlapolódásokat
 		iouIdx = torchvision.ops.nms(finalInstances.pred_boxes.tensor, finalInstances.scores, self.nmsThreshold)
 		finalInstances = finalInstances[iouIdx]
+
+		# 5. Félemberek leszűrése
+		finalInstances = self._filterHalfMan(finalInstances)
 
 		return finalInstances, frame
 	
