@@ -41,11 +41,13 @@ RUN pip install --user imagezmq
 
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"
+#ENV PYTHONUNBUFFERED=1
 
 COPY ./detection /home/appuser/
 
 WORKDIR /home/appuser/
 
 
-ENTRYPOINT ["python3"]
-CMD ["app.py"]
+#ENTRYPOINT ["python3"]
+#CMD ["app.py"]
+CMD ["python3", "-u", "app.py"]

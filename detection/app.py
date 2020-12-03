@@ -1,3 +1,4 @@
+import time
 import cv2
 import imagezmq
 import numpy as np
@@ -26,5 +27,7 @@ myDetector = PlayerDetectorDetectron2(leftSideCorners=left_side_corner_pixels,
 image_hub = imagezmq.ImageHub(open_port='tcp://*:5555')
 while True: 
 	rpi_name, image = image_hub.recv_image()
+	st = time.time()
 	list_detections = myDetector.detectPlayersOnFrame(image)
+	print('Full detection', time.time() - st)
 	image_hub.zmq_socket.send_pyobj(list_detections)

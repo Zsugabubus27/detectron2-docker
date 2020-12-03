@@ -23,8 +23,6 @@ print('Torch version:', torch.__version__, torch.cuda.is_available())
 class PlayerDetectorDetectron2():
 	def __init__(self, leftSideCorners, rightSideCorners, coordMapper,
 				origResolution, outResolution, segnumx, segnumy, nmsThreshold):
-		
-		
 		# Coordinate Mapper class
 		self.coordMapper = coordMapper
 		
@@ -58,7 +56,9 @@ class PlayerDetectorDetectron2():
 		# Rács elkészítése
 		# Grid = (xTL, yTL, xBR, yBR)
 		#self.gridList = self._createGridCells()
-		self.gridList = [[222, 454, 2153, 787], [465, 633, 4825, 1439], [3117, 427, 5119, 800]]
+		#self.gridList = [[222, 454, 2153, 787], [465, 633, 4825, 1439], [3117, 427, 5119, 800]]
+		#self.gridList = [[220, 453, 1466, 666], [1408, 433, 3739, 750], [3691, 431, 5119, 738], [421, 600, 4569, 1439]]
+		self.gridList = [[221, 470, 2029, 655], [356, 575, 2560, 1439], [2560, 502, 5117, 1330], [3224, 434, 4613, 559]]
 		print('grids', len(self.gridList))
 		
 		#A Kamerától vett távolság függvényében változtatom a score-t (yTL)
@@ -135,7 +135,6 @@ class PlayerDetectorDetectron2():
 			predictions (list):
 				list of predictions for every image of images list
 		"""
-		st = time.time()
 		# Disable gradient calculation
 		with torch.no_grad():
 			# Apply pre-processing to every image
@@ -149,7 +148,6 @@ class PlayerDetectorDetectron2():
 				imgDict['image'] = torch.as_tensor(imgDict['image'].astype("float32").transpose(2, 0, 1))
 
 			predictions = self.predictor.model(inputs)
-			print('pred:', time.time() - st)
 			return predictions
 
 	def _cutImageToGrids(self, image):
@@ -198,22 +196,24 @@ class PlayerDetectorDetectron2():
 		result: dict((x_cut, y_cut) -> counturList)
 
 		'''
+		st = time.time()
 		# 0. Preprocess image
 		frame = self.preprocess(image)
-		
+
 		# 1. Külön felvágom a képeket kis cellákra
 		l_cells = self._cutImageToGrids(frame)
 
-		# DEBUG
-		for idx, img in enumerate(l_cells):
-			cv2.imwrite(f'/tmp/outputs/c_{idx}.jpg', img)
-		
+
+		# TODO: DEBUG
+		# for idx, img in enumerate(l_cells):
+		# 	cv2.imwrite(f'/tmp/outputs/c_{idx}.jpg', img)
+
 		# 2. Majd ezeket a képeket beadom a multiple prediktálóba
 		l_preds = self._predictMultipleImages(l_cells)
-		
+
 		# 2.1 Lista a cellákon található instancokról
 		l_preds = [x['instances'].to('cpu') for x in l_preds]
-		
+
 		# 2.2 Visszamappelem a bemeneti képre, majd felskálázom az 5K-s képre
 		# 2.3 A Kamerától vett távolság függvényében változtatom a score-t (yTL)
 		for inst, cell in zip(l_preds, self.gridList): 
@@ -222,7 +222,8 @@ class PlayerDetectorDetectron2():
 			inst.boxes_before = inst.pred_boxes.clone() # Eredeti képen skálázás nélkül hol vannak
 			inst.pred_boxes.tensor = inst.pred_boxes.tensor.divide(self.trans_value)
 			inst.scores *= self.cameraDistWeight[cell[1]]
-		
+
+
 		# 2.4 Egész képre vonatkoztatott Instancok
 		finalInstances = Instances(image_size=self.origResolution[::-1]) # (1440, 5120)
 		finalInstances.pred_boxes = Boxes.cat([x.pred_boxes for x in l_preds])
@@ -230,21 +231,22 @@ class PlayerDetectorDetectron2():
 		finalInstances.scores = torch.cat([x.scores for x in l_preds])
 		finalInstances.pred_classes = torch.cat([x.pred_classes for x in l_preds])
 
+
 		# 3. Leszűröm az emberekre csak
 		_person_class_ID = 0
 		finalInstances = finalInstances[finalInstances.pred_classes == _person_class_ID]
-		
+
 		# 4. NMS használata, hogy kiiktassam az átlapolódásokat
 		iouIdx = torchvision.ops.nms(finalInstances.pred_boxes.tensor, finalInstances.scores, self.nmsThreshold)
 		finalInstances = finalInstances[iouIdx]
-		
+
 		return finalInstances, frame
 	
 	def detectPlayersOnFrame(self, frame):
 
 		# 1. Detektálom a framen a játékosokat
 		allInstances, frame = self._detectAndMap(frame)
-		
+
 		# Ide már a pred_boxes-ban lévő koordinátáknak a 1440x5120-es dimenzióban kell lenni, mert úgy van implementálva a class
 		# 2. Kiszámolom a valós koordinátájukat
 		worldcoords_xy = self.coordMapper.image2xy([( (box[0] + box[2]) / 2, box[3]) for box in allInstances.pred_boxes.tensor])
@@ -254,29 +256,7 @@ class PlayerDetectorDetectron2():
 		allInstances = allInstances[maskWorldCoord]
 		worldcoords_xy = [x for x in worldcoords_xy if x is not None]
 
-		# # Kicsi, bemeneti képen a boxok plotolása
-		# v = Visualizer(frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
-		# v.draw_instance_predictions(allInstances)
-		# for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
-		# 	strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
-		# 	v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
-		# cv2.imwrite('/tmp/outputs/input_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
-
-		# bacToOriginal = cv2.resize(frame, self.origResolution, interpolation = cv2.INTER_AREA)
-		# v = Visualizer(bacToOriginal[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.0)
-		# v.draw_instance_predictions(allInstances)
-		# for worldXY, box in zip(worldcoords_xy, allInstances.pred_boxes.tensor):
-		# 	strToDraw = "{0:.1f}; {1:.1f}".format(*worldXY) if worldXY is not None else 'XXX'
-		# 	v.draw_text(strToDraw, ( (box[0] + box[2]) / 2, (box[1] + box[3]) / 2), font_size=11)
-		# cv2.imwrite('/tmp/outputs/original_wBoxes.jpg', v.get_output().get_image()[:, :, ::-1])
-		
-		# # Detekciók kis képeinek kivágása
-		# for idx, box in enumerate(allInstances.boxes_before.tensor.round().numpy()):
-		# 	xTL, yTL = np.floor(box[0:2]).astype(int)
-		# 	xBR, yBR = np.ceil(box[2:4]).astype(int)
-		# 	cv2.imwrite(f'/tmp/outputs/box_{idx}.jpg', frame[yTL : yBR, xTL : xBR])
-
-
+		# 4. Detekciókat tartalmazó lista létrehozása
 		list_result = []
 		for bigBox, smallBox, score, worldXY in zip(allInstances.pred_boxes.tensor.numpy(), 
 												allInstances.boxes_before.tensor.numpy(),
@@ -286,7 +266,6 @@ class PlayerDetectorDetectron2():
 			clipped_img = frame[yTL : yBR, xTL : xBR]
 			list_result.append( {'worldXY' : worldXY, 'box' : smallBox, 
 								'bigBox' : bigBox, 'score' : score, 'image' : clipped_img} )
-		
 		return list_result
 
 
