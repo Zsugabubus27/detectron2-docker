@@ -10,7 +10,7 @@ import pickle
 # Fill up Queue of images
 _tmpList = ["/home/dobreff/videos/samples/1027_14_25_53_first.bmp", 
 			"/home/dobreff/videos/samples/1026_05_46_59_first.bmp", 
-			"/home/dobreff/videos/samples/1022_07_51_42_first.bmp"] * 1000
+			"/home/dobreff/videos/samples/1022_07_51_42_first.bmp"] * 1
 
 NUM_OF_FRAMES = len(_tmpList)
 
@@ -53,7 +53,7 @@ while (not queue_results.empty()):
 	cv2.imwrite(f'/home/dobreff/videos/outputs/test/{idx}.jpg', newImg)
 	print(f'Item {idx} saved!')
 
-with open('/home/dobreff/videos/outputs/test/test.pickle', 'wb') as handle:
+with open('/home/dobreff/videos/outputs/test/test2.pickle', 'wb') as handle:
 	pickle.dump(dict_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # # Mivel maxra fel van töltve a Queue, addig pörgök a ciklusban amíg van benne elem:

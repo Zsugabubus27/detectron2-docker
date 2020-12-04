@@ -150,7 +150,7 @@ class PlayerDetectorDetectron2():
 		#self.gridList = [[221, 470, 2029, 655], [356, 575, 2560, 1439], [2560, 502, 5117, 1330], [3224, 434, 4613, 559]]
 		grids = [[221, 470, 2029, 655], [356, 575, 2560, 1439], [2560, 502, 5117, 1330], [3224, 434, 4613, 559]]
 		grids = np.array(grids) * (float(self.outResolution[0]) / self.origResolution[0]) # outResolution
-		return grids
+		return grids.astype(int)
 	
 	def _filterHalfMan(self, instances):
 		ioaMx = pairwise_ioa(instances.pred_boxes, instances.pred_boxes).numpy()
