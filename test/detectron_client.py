@@ -7,7 +7,7 @@ class DetectronClient():
 		Stopped = 0
 		Started = 1
 
-	def __init__(self, address, input_queue, output_queue, verbose=True):
+	def __init__(self, address, input_queue, output_queue, verbose=True, storeImg = False):
 		self.clientThread = Thread(target=self.senderFunc, args=(), daemon=True)
 		self.address = address
 		self.sender = DetectionImageSender(connect_to=f'tcp://{self.address}')
@@ -15,6 +15,7 @@ class DetectronClient():
 		self.Q_in = input_queue
 		self.Q_out = output_queue
 		self.verbose = verbose
+		self.storeImg = storeImg
 
 	def start(self):
 		if self.state != self.ClientState.Stopped:
@@ -29,10 +30,12 @@ class DetectronClient():
 			# Ensure the queue is not empty
 			if not self.Q_in.empty():
 				item = self.Q_in.get()
-				list_result = self.sender.send_image(item['idx'], item['image'])
-				# TODO: Élesben nem kell visszatenni a bemeneti képet a kimeneti sorba
-				# self.Q_out.put((item['idx'], list_result))
-				self.Q_out.put((item['idx'], item['image'], list_result))
+				sendMsg = str(item['resolution']) + '_' + str(item['idx'])
+				list_result = self.sender.send_image(sendMsg, item['image'])
+				if self.storeImg:
+					self.Q_out.put((item['idx'], item['image'], list_result))
+				else:
+					self.Q_out.put((item['idx'], list_result))
 				
 				if self.verbose: print(f'Item {item["idx"]} processed by {self.address}')
 			else:

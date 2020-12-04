@@ -56,7 +56,7 @@ class PlayerDetectorDetectron2():
 		# Rács elkészítése
 		# Grid = (xTL, yTL, xBR, yBR)
 		self.gridList = self._createGridCells()
-		print('grids', len(self.gridList))
+		print('grids ->', len(self.gridList))
 		
 		#A Kamerától vett távolság függvényében változtatom a score-t (yTL)
 		self.cameraDistWeight = reversed(np.unique(np.asarray(self.gridList)[:, 1]))
@@ -153,7 +153,7 @@ class PlayerDetectorDetectron2():
 		return grids.astype(int)
 	
 	def _filterHalfMan(self, instances):
-		ioaMx = pairwise_ioa(instances.pred_boxes, instances.pred_boxes).numpy()
+		ioaMx = pairwise_ioa(instances.boxes_before, instances.boxes_before).numpy()
 		np.fill_diagonal(ioaMx, 0)
 		smallBoxIdx = np.max(ioaMx, axis=0)
 		smallBoxIdx = np.where(smallBoxIdx > 0.8)[0]
@@ -161,12 +161,13 @@ class PlayerDetectorDetectron2():
 		# A logika az az, hogy ha a kis BBox részhalmaza egy másik BBoxnak ÉS cellahatáron van akkor az tuti hogy félembert jelent
 		# Ezt úgy ellenőrzöm, hogy ha a kis BBox középpontja legalább 2 cellában benne van akkor félembert jelez
 		# Mivel a cellákat úgy alakítottam ki, hogy a metszetükben egy egész ember tuti elférjen még
-		
+		print(smallBoxIdx)
 		idxToDrop = []
 		for i in smallBoxIdx:
-			xTL, yTL, xBR, yBR = instances.pred_boxes.tensor[i].numpy()
-			numOfCells = np.sum((self.gridList[:, 0] <= xTL) & (self.gridList[:, 1] <= yTL) & 
-								(self.gridList[:, 2] >= xBR) & (self.gridList[:, 3] >= yBR))
+			xTL, yTL, xBR, yBR = instances.boxes_before.tensor[i].numpy()
+			xCenter, yCenter = (xTL + xBR) / 2, (yTL + yBR) / 2
+			numOfCells = np.sum((self.gridList[:, 0] <= xCenter) & (self.gridList[:, 1] <= yCenter) & 
+								(self.gridList[:, 2] >= xCenter) & (self.gridList[:, 3] >= yCenter))
 			if numOfCells > 1:
 				idxToDrop.append(i)
 		idxToDrop = [False if idx in idxToDrop else True for idx in range(len(instances))]

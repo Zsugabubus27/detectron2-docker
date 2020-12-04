@@ -38,6 +38,7 @@ RUN pip install --user -e detectron2_repo
 # My library for myself
 RUN pip install --user Flask
 RUN pip install --user imagezmq
+RUN pip install --user pandas
 
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"

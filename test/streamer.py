@@ -23,9 +23,9 @@ origResolution = (2560, 1440) # Width, Height
 
 # Desired params of output stream
 outputFPS = 30
-outResolution = (2560, 1440) # Width, Height
+outResolution = (1280, 720) # Width, Height
 
-DEBUG_LEN_VIDEO = 900 # 60FPS-ben mért framek száma 36000
+DEBUG_LEN_VIDEO = 36000 # 60FPS-ben mért framek száma 36000
 VIDEO_START_OFFSET = 0 # 60FPS-ben mért framek száma
 # ---------------------------------------------------------------
 NUMBER_OF_FRAMES =  DEBUG_LEN_VIDEO
@@ -126,9 +126,13 @@ while leftCamera.more() and rightCamera.more():
 	ts_concat = time.time()
 
 	# 4. Put the frame into the input Queue
-	queue_frames.put( {'idx' : frameNum, 'image' : frame} )
+	queue_frames.put( {'idx' : frameNum, 'image' : frame, 'resolution' : outResolution[0]} )
 	
 	ts_send_done = time.time()
+
+
+	if int(frameNum) % 1000 == 0:
+		print(frameNum, 'put into queue', queue_results.qsize(), queue_frames.qsize())
 
 	frameNum +=1
 	
@@ -140,6 +144,7 @@ while leftCamera.more() and rightCamera.more():
 	# print(frameNum, ts_send_done - ts_start, sum(debugTimes) / len(debugTimes))
 	# if (outputFPS == 6) and int(frameNum) >= 4000:
 	# 	time.sleep(0.1)
+
 
 	if int(frameNum) >= (NUMBER_OF_FRAMES):
 		print('Every frame has been read in!')
@@ -158,12 +163,14 @@ while queue_results.qsize() < (NUMBER_OF_FRAMES // stepFrame):
 # Save results
 dict_results = {}
 while (not queue_results.empty()):
-	# TODO: imaget nem teszem el élesben
-	idx, img_orig, list_res = queue_results.get()
+	idx, list_res = queue_results.get()
 	dict_results[idx] = list_res
-	newImg = draw_bboxes(img_orig, list_res)
-	cv2.imwrite(f'/home/dobreff/videos/outputs/{outResolution[0]}_{outputFPS}fps/{idx}.jpg', newImg)
-	print(f'Item {idx} saved!')
+	# TODO: imaget nem teszem el élesben
+	# idx, img_orig, list_res = queue_results.get()
+	# dict_results[idx] = list_res
+	# newImg = draw_bboxes(img_orig, list_res)
+	# cv2.imwrite(f'/home/dobreff/videos/outputs/{outResolution[0]}_{outputFPS}fps/{idx}.jpg', newImg)
+	# print(f'Item {idx} saved!')
 
 with open(f'/home/dobreff/videos/outputs/{outResolution[0]}_{outputFPS}fps/detections.pickle', 'wb') as handle:
 	pickle.dump(dict_results, handle, protocol=pickle.HIGHEST_PROTOCOL)

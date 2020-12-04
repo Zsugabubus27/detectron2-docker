@@ -16,18 +16,24 @@ NUM_OF_FRAMES = len(_tmpList)
 
 queue_frames = Queue()
 
+resolutionDict = {2560 : (2560, 1440), 2048 : (2048, 1152), 
+					1920 : (1920, 1080), 1536 : (1536, 864), 1280 : (1280, 720)}
+
+SIZE = resolutionDict[2560]
+
 for idx, imgPath in enumerate(_tmpList):
 	frame = cv2.imread(imgPath)
-	queue_frames.put({'idx' : idx, 'image' : frame})
+	frame = cv2.resize(frame, (SIZE[0]*2, SIZE[1]), interpolation = cv2.INTER_AREA)
+	queue_frames.put({'idx' : idx, 'image' : frame, 'resolution' : SIZE[0]})
 
 # Init output queue
 queue_results = Queue()
 
 # Initialize Detectron Clients
-dc1 = DetectronClient('localhost:5555', queue_frames, queue_results)
-dc2 = DetectronClient('localhost:5556', queue_frames, queue_results)
-dc3 = DetectronClient('localhost:5557', queue_frames, queue_results)
-dc4 = DetectronClient('localhost:5558', queue_frames, queue_results)
+dc1 = DetectronClient('localhost:5555', queue_frames, queue_results, verbose=True, storeImg = True)
+dc2 = DetectronClient('localhost:5556', queue_frames, queue_results, verbose=True, storeImg = True)
+dc3 = DetectronClient('localhost:5557', queue_frames, queue_results, verbose=True, storeImg = True)
+dc4 = DetectronClient('localhost:5558', queue_frames, queue_results, verbose=True, storeImg = True)
 
 st = time.time()
 # Start processing
@@ -50,10 +56,10 @@ while (not queue_results.empty()):
 	idx, img_orig, list_res = queue_results.get()
 	dict_results[idx] = list_res
 	newImg = draw_bboxes(img_orig, list_res)
-	cv2.imwrite(f'/home/dobreff/videos/outputs/test/{idx}.jpg', newImg)
+	cv2.imwrite(f'/home/dobreff/videos/outputs/test/resize{idx}.jpg', newImg)
 	print(f'Item {idx} saved!')
 
-with open('/home/dobreff/videos/outputs/test/test2.pickle', 'wb') as handle:
+with open('/home/dobreff/videos/outputs/test/test_resize.pickle', 'wb') as handle:
 	pickle.dump(dict_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # # Mivel maxra fel van töltve a Queue, addig pörgök a ciklusban amíg van benne elem:
