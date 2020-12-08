@@ -107,19 +107,22 @@ sendTimes = []
 
 frameNum = 0
 while leftCamera.more() and rightCamera.more():
-	# 0. Skip frames to maintain desired FPS
-	if (frameNum % stepFrame) != 0:
-		frameNum +=1
-		continue
-
+	
 	ts_start = time.time()
 	# TODO: Handle when it is the end of the video. Camera raises StopIteration Error!!!
 	# 1. Get next frame for each camera
 	# 2. Undistort the frame for each frame -> This happends in the camera
 	leftCameraFrame = leftCamera.getNextFrame()
 	rightCameraFrame = rightCamera.getNextFrame()
-	
+
 	ts_frames_received = time.time()
+
+	# 0. Skip frames to maintain desired FPS
+	if (frameNum % stepFrame) != 0:
+		frameNum +=1
+		continue
+
+
 	
 	# 3. Concat the frames horizontally
 	frame = cv2.hconcat([leftCameraFrame, rightCameraFrame])
