@@ -27,3 +27,7 @@ python3 demo/demo.py --config-file configs/COCO-InstanceSegmentation/mask_rcnn_R
 2. [Facebook Detectron2](https://github.com/facebookresearch/detectron2)
 3. [Deepsort](https://github.com/nwojke/deep_sort)
 4. [SORT](https://github.com/abewley/sort)
+
+# SajatVM-re VKE-ről
+scp -P 33336 -r dobreff@152.66.244.166:/home/dobreff/videos/images <filepath_on_local>
+scp -P 33336 dobreff@152.66.244.166:/home/dobreff/videos/outputs/2560_30fps/detections_v3.pickle /mnt/match_videos/dobreff/detections/2560_30fps/

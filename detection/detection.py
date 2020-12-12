@@ -156,7 +156,7 @@ class PlayerDetectorDetectron2():
 		ioaMx = pairwise_ioa(instances.boxes_before, instances.boxes_before).numpy()
 		np.fill_diagonal(ioaMx, 0)
 		smallBoxIdx = np.max(ioaMx, axis=0)
-		smallBoxIdx = np.where(smallBoxIdx > 0.8)[0]
+		smallBoxIdx = np.where(smallBoxIdx > 0.6)[0]
 		
 		# A logika az az, hogy ha a kis BBox részhalmaza egy másik BBoxnak ÉS cellahatáron van akkor az tuti hogy félembert jelent
 		# Ezt úgy ellenőrzöm, hogy ha a kis BBox középpontja legalább 2 cellában benne van akkor félembert jelez

@@ -21,6 +21,7 @@ D= np.array([[-0.04903868008658097], [-0.08844440260190703], [0.228408663794075]
 videoFPS = 60
 origResolution = (2560, 1440) # Width, Height
 
+# ["(2560, 1440)", "(2048, 1152)", "(1920, 1080)", "(1536, 864)", "(1280, 720)"]
 # Desired params of output stream
 outputFPS = 30
 outResolution = (1280, 720) # Width, Height
@@ -90,15 +91,15 @@ queue_results = Queue()
 
 # Initialize Detectron Clients
 dc1 = DetectronClient('localhost:5555', queue_frames, queue_results, verbose=False)
-dc2 = DetectronClient('localhost:5556', queue_frames, queue_results, verbose=False)
-dc3 = DetectronClient('localhost:5557', queue_frames, queue_results, verbose=False)
-dc4 = DetectronClient('localhost:5558', queue_frames, queue_results, verbose=False)
+# dc2 = DetectronClient('localhost:5556', queue_frames, queue_results, verbose=False)
+# dc3 = DetectronClient('localhost:5557', queue_frames, queue_results, verbose=False)
+# dc4 = DetectronClient('localhost:5558', queue_frames, queue_results, verbose=False)
 
 # Start processing
 dc1.start()
-dc2.start()
-dc3.start()
-dc4.start()
+# dc2.start()
+# dc3.start()
+# dc4.start()
 
 # ------------------------------------------------------------------------
 list_times = []
@@ -131,6 +132,8 @@ while leftCamera.more() and rightCamera.more():
 	# 4. Put the frame into the input Queue
 	queue_frames.put( {'idx' : frameNum, 'image' : frame, 'resolution' : outResolution[0]} )
 	
+	#cv2.imwrite(f'/home/dobreff/videos/images/{frameNum}.jpg', frame)
+
 	ts_send_done = time.time()
 
 
@@ -175,7 +178,7 @@ while (not queue_results.empty()):
 	# cv2.imwrite(f'/home/dobreff/videos/outputs/{outResolution[0]}_{outputFPS}fps/{idx}.jpg', newImg)
 	# print(f'Item {idx} saved!')
 
-with open(f'/home/dobreff/videos/outputs/{outResolution[0]}_{outputFPS}fps/detections.pickle', 'wb') as handle:
+with open(f'/home/dobreff/videos/outputs/{outResolution[0]}_{outputFPS}fps/detections_v3.pickle', 'wb') as handle:
 	pickle.dump(dict_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
